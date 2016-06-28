@@ -114,7 +114,7 @@ Module MyPosZ.
     | xO p' => xI p'
     | xH => xO xH
     end.
-
+  
   (** Some notation, for positives 1 through 5: *)
 
   Local Notation "'1'" := (xH).
@@ -126,6 +126,64 @@ Module MyPosZ.
   Eval compute in succ 2.
   Eval compute in succ 4.
   Eval compute in succ 1.
+
+  (** The successor function defined above works correctly 
+      on a few test cases. But these tests don't imply that successor
+      works correctly in *all* cases. Let's prove it!
+
+      Define the following interpretation function from 
+      positives to nats:
+ 
+      [[ . ]] : positive -> nat
+      [[ xI p' ]] = 2 * [[ p' ]] + 1
+      [[ xO p' ]] = 2 * [[ p' ]]
+      [[ xH ]]    = 1
+
+      Our correctness property will be the following theorem:            
+
+      Theorem: forall p, [[ succ p ]] = [[ p ]] + 1.
+
+      Case xI: 
+      By IH, [[succ p']] = [[p']] + 1.
+      N.T.S. [[p'~1]] + 1   = [[(succ p')~0]]
+           = 2 * [[p']] + 2 = 2 * [[succ p']]
+                            = 2 * ([[p']] + 1)    By IH
+                            = 2 * [[ p' ]] + 2    []
+
+      Case xO: 
+      N.T.S. [[p'~0]] + 1   = [[p'~1]].
+           = 2 * [[p']] + 1 = 2 * [[p']] + 1      []
+
+      Case xH:
+      N.T.S. [[xH]] + 1 = [[xO xH]]
+           = 1 + 1      = 2 * [[xH]]
+                        = 2 * 1 = 2               []
+    *)
+
+  Fixpoint interp (p : positive) : nat :=
+    match p with
+    | xH => 1
+    | xO p' => 2 * interp p'
+    | xI p' => 2 * interp p' + 1
+    end.
+
+  Lemma pos_succ_correct :
+    forall p : positive,
+      interp p + 1 = interp (succ p).
+  Proof.
+    induction p.
+    { unfold succ. fold succ.
+      unfold interp. fold interp.
+      rewrite <-!IHp. omega.
+    }
+    { simpl. rewrite <-!plus_n_O. auto. }
+    auto.
+  Qed.    
+  
+  (** HOMEWORK Exercise 6b: Define predecessor on positives. 
+      HINT: Define [pred 1 = 1]. You may find an auxiliary 
+      function useful. Look in the standard library if you get 
+      stuck. *)
   
   (** Now we can define [Z] (the positive and negative integers) 
       in terms of [positive] as follows: *)
