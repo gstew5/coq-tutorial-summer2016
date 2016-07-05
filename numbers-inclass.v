@@ -137,7 +137,7 @@ Lemma Zfact2 :
 Proof.
 Admitted.
 
-(** Exercise 8: *Withouth using ring*, try to prove the following fact 
+(** Exercise 8: *Without using ring*, try to prove the following fact 
     about the integers. *)
 
 Lemma Zfact3 :
@@ -145,7 +145,86 @@ Lemma Zfact3 :
 Proof.
 Admitted.
 
-(** Enough for now. In Part II, we'll look at Q, Real, and ways to inject 
+(** Let's compose some of the pieces we've defined above to build 
+    a new datatype for rationals, Q: *)
+
+Module MyQ.
+  Record Q : Type :=
+    QMake { QNum : Z;
+            QDen : positive }.
+
+  (** The 'Record' declaration above basically does the following: 
+
+    1. Define an 
+
+       Inductive Q : Type := 
+         QMake : Z -> positive -> Q
+
+    2. Define 'projections', of the form:
+
+       Definition QNum (q : Q) : Z := 
+         match q with 
+           | QMake n d => n
+         end. 
+
+       Definition QDen (q : Q) : positive := 
+         match q with 
+           | QMake n d => d
+         end. 
+   *)
+
+  (** Here's addition on rationals. Note that we don't 
+      maintain irreducibility. *)
+  
+  Definition Qplus (x y : Q) :=
+    QMake (QNum x * Zpos (QDen y) + QNum y * Zpos (QDen x))
+          (Pos.mul (QDen x) (QDen y)).
+
+  Definition three_fourths : Q := QMake 3 4.
+
+  Eval compute in Qplus three_fourths three_fourths.
+
+  (** Exercise 9: Define a variant of the 'Q' type above
+      such that the fraction Qnum / Qden is always in 
+      reduced form (Qnum and Qden have no common divisors). To 
+      do so, you'll need to add a third term to the record 
+      containing a proof of the appropriate arithmetic fact. *)
+
+  Record Q' : Type :=
+    QMake' { QNum' : Z;
+             QDen' : positive;
+             invariant : (* FILL IN HERE *) False }.
+
+  (* Define equality on "reduced Q" as follows: *)
+
+  Definition Qeq (x y : Q') :=
+    QNum' x * Zpos (QDen' y) = QNum' y * Zpos (QDen' x).
+
+  (* If you've correctly defined 'reducedQ', you should be able 
+     to prove the following lemma: *)
+
+  Lemma Qeq_eq :
+    forall x y : Q', Qeq x y -> x = y.
+  Proof.
+    (** CHALLENGE Exercise: Prove this! *)
+  Admitted.    
+End MyQ.  
+
+(** We don't need to define our own rationals, of course. Coq's 
+    standard library builds them in: *)
+
+Require Import QArith.
+
+Lemma Qfact1 :
+  forall x y z : Q,
+    z * (x + y) == z * x + z * y. (* To the left, == is 'Qeq'. *)
+Proof.
+  intros x y z.
+  (* "SearchAbout Qplus Qmult" yields lemma "Qmult_plus_distr_r". *)
+  apply Qmult_plus_distr_r.
+Qed.  
+
+(** Enough for now. In Part II, we'll look Real, plus ways to inject 
     statements over one number type (e.g., nats) into another (e.g., Z). *)
 
 
