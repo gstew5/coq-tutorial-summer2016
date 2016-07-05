@@ -141,7 +141,7 @@ Module MyPosZ.
       [[ xO p' ]] = 2 * [[ p' ]]
       [[ xH ]]    = 1
 
-      Our correctness property will be the following theorem:            
+      Our correctness property is then the following theorem:            
 
       Theorem: forall p, [[ succ p ]] = [[ p ]] + 1.
 
