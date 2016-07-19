@@ -32,6 +32,13 @@ Inductive graph : Type :=
     graph -> (** the rest of the graph *)
     graph.
 
+Local Open Scope positive_scope.
+
+Example ex1 : graph :=
+  Node 1 (2 :: 3 :: nil)
+       (Node 2 (3 :: nil)
+             (Node 3 nil Empty)).
+
 Fixpoint neighbors_of (x : node) (g : graph) : list node :=
   match g with
   | Empty => nil
