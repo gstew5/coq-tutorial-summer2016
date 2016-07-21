@@ -111,9 +111,30 @@ Inductive graph_ok : graph -> Prop :=
 | NodeOk :
     forall (x : node) (adj : list node) (g : graph),
       graph_contains x g = false ->
+      NoDup adj -> 
       forallb (fun y => graph_contains y g) adj = true -> (** No self-loops! *)
       graph_ok g ->
       graph_ok (Node x adj g).
+
+Fixpoint node_nodup (l : list node) : bool :=
+  match l with
+  | nil => true
+  | x :: l' =>
+    if nodelist_contains x l' then false
+    else node_nodup l'
+  end.
+
+Lemma node_nodupP :
+  forall l, reflect (NoDup l) (node_nodup l).
+Proof.
+  induction l.
+  constructor. constructor.
+  simpl. destruct (nodelist_containsP a l).
+  constructor. inversion 1; subst. contradiction.
+  destruct (node_nodup l) eqn:H.
+  constructor. constructor; auto. inversion IHl; auto.
+  constructor. inversion 1; subst. inversion IHl; contradiction.
+Qed.  
 
 (** A so-called "smart constructor" for "Node". 
     We enforce the following two properties: 
@@ -121,7 +142,9 @@ Inductive graph_ok : graph -> Prop :=
       2) every node in "adj" is in the graph. *)
 
 Definition add_node (x : node) (adj : list node) (g : graph) : graph :=
-  if negb (graph_contains x g) && forallb (fun y => graph_contains y g) adj
+  if negb (graph_contains x g)
+          && node_nodup adj
+          && forallb (fun y => graph_contains y g) adj
   then Node x adj g
   else g.
 
@@ -132,11 +155,15 @@ Lemma add_node_ok :
 Proof.
   intros x adj g H.
   unfold add_node.
-  destruct (negb (graph_contains x g) &&
-            forallb (fun y : node => graph_contains y g) adj) eqn:H2.
+  destruct (negb (graph_contains x g)
+                 && node_nodup adj
+                 && forallb (fun y : node => graph_contains y g) adj) eqn:H2.
   symmetry in H2; apply andb_true_eq in H2; destruct H2.
+  apply andb_true_eq in H0. destruct H0.
   apply NodeOk.
   { symmetry in H0; rewrite negb_true_iff in H0; apply H0. }
+  { symmetry in H2; generalize H2; destruct (node_nodupP adj); auto.
+    congruence. }
   { rewrite <-H1; auto. }
   apply H.
   apply H.
@@ -145,6 +172,7 @@ Qed.
 Lemma ex1_graph_ok : graph_ok ex1.
 Proof.
   unfold ex1; repeat (constructor; auto).
+  inversion 1; auto. congruence.
   (*apply NodeOk; auto.
   apply NodeOk; auto.
   apply NodeOk; auto.
@@ -275,6 +303,17 @@ Proof.
   simpl. rewrite H3. auto.
 Qed.  
 
+Lemma remove_NoDup x l :
+  NoDup l ->
+  NoDup (remove x l).
+Proof.
+  induction l; auto.
+  inversion 1; subst.
+  simpl. destruct (negb _). constructor; auto.
+  intros H4. apply In_remove_weaken in H4; contradiction.
+  auto.
+Qed.
+
 Lemma remove_node_ok :
   forall x g,
     graph_ok g ->
@@ -292,15 +331,17 @@ Proof.
   { inversion H; subst.
     rewrite remove_node_contains; auto.
     intros H3; subst x. rewrite node_eqb_refl in H2. congruence. }
+  { apply remove_NoDup; auto.
+    inversion H; auto. }
   { inversion H; subst.
-    specialize (IHg H6). clear H6.
+    specialize (IHg H7). clear H7.
     rewrite forallb_forall.
-    intros y H6.
-    rewrite forallb_forall in H5.
+    intros y H7.
+    rewrite forallb_forall in H6.
     rewrite remove_node_contains.
-    { apply H5.
-      apply In_remove_weaken in H6; auto. }
-    apply In_remove_neq in H6; auto. }
+    { apply H6.
+      apply In_remove_weaken in H7; auto. }
+    apply In_remove_neq in H7; auto. }
   inversion H; subst.
   auto.
 Qed.      
