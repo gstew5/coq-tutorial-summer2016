@@ -27,13 +27,34 @@ Module Type RawGraph (Node : UsualOrderedType) (F : WSetsOn).
     forall x adj g,
       inv g ->
       inv (Node x adj g).
-
+  
   Parameter ind :
     forall P : t -> Prop,
       P Empty ->
       (forall (n : node) (adj : node_set) (g : t),
           inv g -> P g -> P (Node n adj g)) ->
       forall g : t, inv g -> P g.
+
+  Parameter fold :
+    forall
+      (T : Type)
+      (FEmpty : t -> T)      
+      (FNode : node -> node_set -> T -> T),
+      forall (g : t), inv g -> T.
+
+  Parameter fold_ind :
+    forall
+      (T : Type)
+      (FEmpty : t -> T)
+      (FNode : node -> node_set -> T -> T)
+      (R : t -> T -> Prop),
+      R Empty (FEmpty Empty) ->
+      (forall x adj g (pf : inv g),
+          let g' := fold FEmpty FNode pf in
+          R g g' -> 
+          R (Node x adj g) (FNode x adj g')) ->
+      forall (g : t) (pf : inv g),
+        R g (fold FEmpty FNode pf).
 End RawGraph.
 
 Require Import POrderedType.
@@ -109,6 +130,73 @@ Module InductiveRawGraph : RawGraph Positive_as_OT MSetWeakList.Make.
     set (l' := NodeSet.Mkt l).
     inversion H0; subst.
     apply (IH n l' g' H9); auto.
+  Qed.
+
+  Lemma fold_lem1 (g : t) (pf : inv g) x adj g' (H : g = graphs.Node x adj g') :
+    NodeSet.Raw.Ok adj.
+  Proof.
+    rewrite H in pf.
+    inversion pf; subst.
+    rewrite NoDup_NoDupA_eq in H2; auto.
+  Qed.    
+
+  Lemma fold_lem2 (g : t) (pf : inv g) x adj g' (H : g = graphs.Node x adj g') :
+    inv g'.
+  Proof.
+    rewrite H in pf.
+    inversion pf; subst.
+    auto.
+  Qed.
+  
+  Fixpoint fold
+           (T : Type)
+           (FEmpty : t -> T)
+           (FNode : node -> node_set -> T -> T)
+           (g : t)
+           (pf : inv g) : T :=
+    (match g as g0 return _ = g0 -> _ with
+    | graphs.Empty => fun _ => FEmpty g
+    | graphs.Node x adj g' =>
+      fun pf' =>
+        let adj' := @NodeSet.Mkt _ (fold_lem1 pf pf')
+        in FNode x adj' (fold FEmpty FNode (fold_lem2 pf pf'))
+     end) eq_refl.
+
+  Axiom proof_irrelevance : forall (P:Prop) (p1 p2:P), p1 = p2.
+  
+  Lemma fold_ind :
+    forall
+      (T : Type)
+      (FEmpty : t -> T)
+      (FNode : node -> node_set -> T -> T)
+      (R : t -> T -> Prop),
+      R Empty (FEmpty Empty) ->
+      (forall x adj g (pf : inv g),
+          let g' := fold FEmpty FNode pf in
+          R g g' -> 
+          R (Node x adj g) (FNode x adj g')) ->
+      forall (g : t) (pf : inv g),
+        R g (fold FEmpty FNode pf).
+  Proof.
+    intros.
+    revert pf.
+    induction g; auto.
+    unfold fold. fold fold.
+    intros pf.
+    unfold Node in H0.
+    assert (H1 : NodeSet.Raw.Ok l).
+    { unfold NodeSet.Raw.Ok. rewrite <-NoDup_NoDupA_eq.
+      inversion pf; subst; auto. }
+    set (l' := @NodeSet.Mkt l H1).
+    inversion pf; subst.
+    specialize (H0 n l' g H6).
+    assert (H7 : H1 = fold_lem1 pf eq_refl).
+    { apply proof_irrelevance. }
+    subst H1.
+    assert (H8 : H6 = fold_lem2 pf eq_refl).
+    { apply proof_irrelevance. }
+    subst H6.
+    auto.
   Qed.
 End InductiveRawGraph.
   
