@@ -1,8 +1,18 @@
 Set Implicit Arguments.
 
 Require Import ZArith List Bool.
-
+Require Import MSets MSetWeakList MSetAVL.
 Definition node := positive.
+
+Module mset := MSetAVL.Make Positive_as_OT.
+
+Notation node_set := mset.t.
+
+Print mset.(*Functions over sets!*)
+Check node_set.
+
+
+Definition add := Pos.add.
 
 Definition node_eqb := Pos.eqb.
 
@@ -34,16 +44,45 @@ Proof.
 Qed.  
 
 (** Undirected Graphs *)
-
 Inductive graph : Type :=
 | Empty : graph
 | Node :
     node -> (** this node's id *)
-    list node -> (** its neighbors *)
+    node_set(*list node*) -> (** its neighbors *)
     graph -> (** the rest of the graph *)
     graph.
-
+Check graph.
 Local Open Scope positive_scope.
+Require Import MSets.MSetInterface.
+
+(*For destructing the set like a list, don't know if this will be useful *)
+Notation "x |-> y" := (mset.add x y) (at level 60, no associativity).
+
+Notation "[ ]" := nil.
+Notation "[ elt0 , .. , eltn ]" := (mset.add elt0 .. (mset.add eltn (mset.empty )) .. ) (at level 60, no associativity).
+
+Example RefSet: node_set :=
+  mset.add 4( mset.add 5 mset.empty).
+
+Compute mset.elements RefSet.
+
+Check 1 |-> RefSet.
+
+Check [1, 3, 4].
+
+
+
+Compute mset.exists_ (fun y  =>  Pos.eqb y 3) RefSet. 
+
+(* Fixpoint list (n : node) (s : node_set) (acc : list node) := *)
+(*   match  s with *)
+(*     | mset.empty  => acc *)
+(*     | mset.Mkt elem  => if Pos.eqb elem n then true else msetInb n   *)
+(*   end. *)
+    
+
+
+(* Print mset.This RefSet. *)
 
 Example ex1 : graph :=
   Node 1 (2 :: 3 :: nil)
@@ -53,7 +92,8 @@ Example ex1 : graph :=
 Example ex2 : graph :=
   Node 3 (2 :: 1 :: nil)
        (Node 2 (1 :: nil)
-             (Node 1 nil Empty)).
+             (Node 1 (5 :: nil)
+                   (Node 5 nil Empty))).
 
 (** Return the adjacency list associated by graph g
     with node x. *)
@@ -345,6 +385,34 @@ Proof.
   inversion H; subst.
   auto.
 Qed.      
+
+Fixpoint vertices (g : graph) : list node :=
+  match g with
+  |Empty => nil
+  |Node n adj g' => n :: vertices g'
+  end.
+
+Fixpoint edges (g : graph) : list (node * node) :=
+  match g with
+  |Empty => nil
+  |Node n adj g' => app (map (fun (elem : node) => (n, elem)) adj) (edges g')
+  end.
+
+Fixpoint Inb (n : node) (l : list node) : bool :=
+  match l with
+  |nil => false
+  | h :: t => if node_eqb n h then true else Inb n t
+  end.
+
+Fixpoint isSortedG (g : graph) : bool :=
+  match g with
+    |Empty => true
+    |Node x adj g' => match g' with
+                     |Empty => true
+                     |Node n adj1 g'' =>  (Pos.ltb x n) && (isSortedG g')(*if negb (Pos.ltb x n) then isSortedG g'
+                                        else false*)
+                     end
+  end.
 
 (** Other potential operators/predicates/definitions: 
     - definition of paths from x <-> y
