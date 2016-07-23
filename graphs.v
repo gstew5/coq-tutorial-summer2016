@@ -1,16 +1,15 @@
 Set Implicit Arguments.
 
 Require Import ZArith List Bool.
-Require Import MSets MSetWeakList MSetAVL.
+Require Import MSets.
 Definition node := positive.
 
 Module mset := MSetAVL.Make Positive_as_OT.
 
 Notation node_set := mset.t.
 
-Print mset.(*Functions over sets!*)
+Print mset. (*Functions over sets!*)
 Check node_set.
-
 
 Definition add := Pos.add.
 
@@ -58,64 +57,65 @@ Require Import MSets.MSetInterface.
 (*For destructing the set like a list, don't know if this will be useful *)
 Notation "x |-> y" := (mset.add x y) (at level 60, no associativity).
 
-Notation "[ ]" := nil.
-Notation "[ elt0 , .. , eltn ]" := (mset.add elt0 .. (mset.add eltn (mset.empty )) .. ) (at level 60, no associativity).
+Notation "[ ]" := mset.empty.
+
+Notation "[ elt0 , .. , eltn ]" := (mset.add elt0 .. (mset.add eltn (mset.empty )) .. ) (at level 60, right associativity).
 
 Example RefSet: node_set :=
-  mset.add 4( mset.add 5 mset.empty).
+  mset.add 4( mset.add 5 ( mset.add 4 mset.empty)).
 
 Compute mset.elements RefSet.
-
+Print RefSet.
 Check 1 |-> RefSet.
+Check mset.empty.
 
-Check [1, 3, 4].
+Check mset.Raw.Node 2%Z mset.Raw.Leaf 1
+      (mset.Raw.Node 1%Z mset.Raw.Leaf 2 mset.Raw.Leaf).
 
-
-
-Compute mset.exists_ (fun y  =>  Pos.eqb y 3) RefSet. 
-
-(* Fixpoint list (n : node) (s : node_set) (acc : list node) := *)
-(*   match  s with *)
-(*     | mset.empty  => acc *)
-(*     | mset.Mkt elem  => if Pos.eqb elem n then true else msetInb n   *)
-(*   end. *)
-    
-
-
-(* Print mset.This RefSet. *)
+Compute mset.exists_ (fun y  =>  Pos.eqb y 4) RefSet. 
 
 Example ex1 : graph :=
-  Node 1 (2 :: 3 :: nil)
-       (Node 2 (3 :: nil)
-             (Node 3 nil Empty)).
+  Node 1 ([2,  3])
+       (Node 2 ([3])
+             (Node 3 [] Empty)).
 
 Example ex2 : graph :=
-  Node 3 (2 :: 1 :: nil)
-       (Node 2 (1 :: nil)
-             (Node 1 (5 :: nil)
-                   (Node 5 nil Empty))).
+  Node 3 ([2,1])
+       (Node 2 ([1])
+             (Node 1 ([5])
+                   (Node 5 [] Empty))).
+
+Check mset.this RefSet.
 
 (** Return the adjacency list associated by graph g
     with node x. *)
 
-Fixpoint adj_of (x : node) (g : graph) : list node :=
+Fixpoint adj_of (x : node) (g : graph) : node_set :=
   match g with
-  | Empty => nil
+  | Empty => mset.empty
   | Node y adj g' =>
-    if node_eqb x y then adj
+    if node_eqb x y then  adj
     else adj_of x g'
   end.
 
+(*Maybe there could be some notation to print mset.this better than the tree form it is in now, but mset.elements makes it readable now.*)
+Compute mset.elements (adj_of 3 ex2).
+
 (** Return all neighbors in g of node x. *)
 
-Fixpoint nodelist_contains (x : node) (l : list node) : bool :=
-  match l with
-  | nil => false
-  | y :: l' =>
-    if node_eqb x y then true
-    else nodelist_contains x l'
-    (* node_eqb x y || nodelist_contains x l' *)
-  end.
+Definition nodeSet_contains (x : node) (s : node_set) :=
+  mset.exists_ (fun y => node_eqb y x) s.
+
+
+
+(* Fixpoint nodelist_contains (x : node) (l : list node) : bool := *)
+(*   match l with *)
+(*   | nil => false *)
+(*   | y :: l' => *)
+(*     if node_eqb x y then true *)
+(*     else nodelist_contains x l' *)
+(*     (* node_eqb x y || nodelist_contains x l' *) *)
+(*   end. *)
 
 Lemma nodelist_containsP :
   forall x l,
