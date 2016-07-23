@@ -103,39 +103,48 @@ Compute mset.elements (adj_of 3 ex2).
 
 (** Return all neighbors in g of node x. *)
 
-Definition nodeSet_contains (x : node) (s : node_set) :=
+Definition nodeset_contains (x : node) (s : node_set) :=
   mset.exists_ (fun y => node_eqb y x) s.
 
-
-
-(* Fixpoint nodelist_contains (x : node) (l : list node) : bool := *)
-(*   match l with *)
-(*   | nil => false *)
-(*   | y :: l' => *)
-(*     if node_eqb x y then true *)
-(*     else nodelist_contains x l' *)
-(*     (* node_eqb x y || nodelist_contains x l' *) *)
-(*   end. *)
+Fixpoint nodelist_contains (x : node) (l : list node) : bool :=
+  match l with
+  | nil => false
+  | y :: l' =>
+    if node_eqb x y then true
+    else nodelist_contains x l'
+    (* node_eqb x y || nodelist_contains x l' *)
+  end.
 
 Lemma nodelist_containsP :
-  forall x l,
+  forall x (l : list node),
     reflect (In x l) (nodelist_contains x l).
 Proof.
   induction l; try constructor; auto.
-  simpl. destruct (node_eqbP x a).
+  simpl.  destruct (node_eqbP x a).
   constructor; auto.
   destruct (nodelist_contains x l) eqn:H.
   constructor. right. inversion IHl; auto.
   constructor. intros [H2|H2]. subst x. auto. inversion IHl; auto.
-Qed.  
+  Qed.
 
-Fixpoint neighbors_of (x : node) (g : graph) : list node :=
+(*Did this one semi fast may want to go back and look over it again*)
+Fixpoint neighbors_of (x : node) (g : graph) : node_set:=
+  match g with
+  | Empty => mset.empty
+  | Node y adj g' =>
+    if node_eqb x y then  mset.union adj (neighbors_of x g')
+    else if nodeset_contains x adj then mset.add y (neighbors_of x g')
+         else neighbors_of x g'
+  end.
+
+(*Changed adj to mset.elements due to adj of graph now being node_set*)
+Fixpoint neighbors_ofL (x : node) (g : graph) : list node :=
   match g with
   | Empty => nil
   | Node y adj g' =>
-    if node_eqb x y then adj ++ neighbors_of x g'
-    else if nodelist_contains x adj then y :: neighbors_of x g'
-         else neighbors_of x g'
+    if node_eqb x y then (mset.elements adj) ++ neighbors_ofL x g'
+    else if nodelist_contains x (mset.elements adj) then y :: neighbors_ofL x g'
+         else neighbors_ofL x g'
   end.
 
 Fixpoint graph_contains (x : node) (g : graph) : bool :=
@@ -146,16 +155,20 @@ Fixpoint graph_contains (x : node) (g : graph) : bool :=
     else graph_contains x g'
   end.
 
+(*Didn't know exaclty how best to change this so continued to use forallb and NoDup. MSetAVL may also not allow duplicate but it looked like they duplicates where still stored when it is created with add but elements returns : list elt, with no duplicates.*)
 Inductive graph_ok : graph -> Prop :=
 | EmptyOk : graph_ok Empty
 | NodeOk :
-    forall (x : node) (adj : list node) (g : graph),
+    forall (x : node) (adj : node_set(*list node*)) (g : graph),
       graph_contains x g = false ->
-      NoDup adj -> 
-      forallb (fun y => graph_contains y g) adj = true -> (** No self-loops! *)
+      NoDup (mset.elements adj) -> 
+      forallb (fun y => graph_contains y g) (mset.elements adj) = true -> (** No self-loops! *)
       graph_ok g ->
       graph_ok (Node x adj g).
 
+
+(* NoDup is given in MSets by  Parameter elements_spec2w :
+       forall s : node_set, NoDupA Logic.eq (elements s). I think, it uses NoDupA and I haven't looked to closely at that.*)
 Fixpoint node_nodup (l : list node) : bool :=
   match l with
   | nil => true
@@ -176,18 +189,28 @@ Proof.
   constructor. inversion 1; subst. inversion IHl; contradiction.
 Qed.  
 
+(**Still using forallb to not break proofs below probably should be easy to not convert it to a list I just want to change things incrementally and break as little as I can*)
+
 (** A so-called "smart constructor" for "Node". 
     We enforce the following two properties: 
       1) "x" is not already in the graph; 
       2) every node in "adj" is in the graph. *)
 
-Definition add_node (x : node) (adj : list node) (g : graph) : graph :=
+Definition add_node (x : node) (adj : node_set) (g : graph) : graph :=
   if negb (graph_contains x g)
-          && node_nodup adj
-          && forallb (fun y => graph_contains y g) adj
+          && node_nodup (mset.elements adj)
+          && forallb (fun y => graph_contains y g) (mset.elements adj)
   then Node x adj g
   else g.
 
+(* Definition add_node (x : node) (adj : list node) (g : graph) : graph := *)
+(*   if negb (graph_contains x g) *)
+(*           && node_nodup adj *)
+(*           && forallb (fun y => graph_contains y g) mset.elements adj *)
+(*   then Node x adj g *)
+(*   else g. *)
+
+(*Slight changes to destructs in this proof, I hope i'm not totally off track doing all this but even if I am it was a good exercise.*)
 Lemma add_node_ok :
   forall x adj g,
     graph_ok g ->
@@ -196,13 +219,13 @@ Proof.
   intros x adj g H.
   unfold add_node.
   destruct (negb (graph_contains x g)
-                 && node_nodup adj
-                 && forallb (fun y : node => graph_contains y g) adj) eqn:H2.
+                 && node_nodup (mset.elements adj)
+                 && forallb (fun y : node => graph_contains y g) (mset.elements adj)) eqn:H2.
   symmetry in H2; apply andb_true_eq in H2; destruct H2.
   apply andb_true_eq in H0. destruct H0.
   apply NodeOk.
   { symmetry in H0; rewrite negb_true_iff in H0; apply H0. }
-  { symmetry in H2; generalize H2; destruct (node_nodupP adj); auto.
+  { symmetry in H2; generalize H2; destruct (node_nodupP (mset.elements adj)); auto.
     congruence. }
   { rewrite <-H1; auto. }
   apply H.
@@ -219,6 +242,7 @@ Proof.
   apply EmptyOk.*)
 Qed.  
 
+(*Change this to MSet filter sometime*)
 Lemma filter_property :
   forall (A : Type) (l : list A) (f : A -> bool),
     forallb f (filter f l) = true.
@@ -229,6 +253,9 @@ Proof.
   { simpl. rewrite H. simpl. apply IHl. }
   apply IHl.
 Qed.  
+
+Definition removeS (x : node) (adj : node_set) : node_set :=
+  mset.filter (fun z => negb (node_eqb x z)) adj.
 
 Definition remove (x : node) (adj : list node) : list node :=
   filter (fun z => negb (node_eqb x z)) adj.
@@ -284,8 +311,17 @@ Proof.
     destruct (node_eqbP x a); auto. simpl in H2. congruence. }
   destruct (node_eqbP x a); auto.
   unfold negb. rewrite not_in_cons. intros [H1 H2]. auto.
-Qed.  
+Qed.
 
+Fixpoint remove_nodeS (x : node) (g : graph) : graph :=
+  match g with
+  | Empty => Empty
+  | Node y adj g' =>
+    if node_eqb x y then remove_nodeS x g'
+    else Node y (removeS x adj) (remove_nodeS x g')
+  end.
+
+(*Changing the graph to use node_sets breaks everything in comments here.
 Fixpoint remove_node (x : node) (g : graph) : graph :=
   match g with
   | Empty => Empty
@@ -384,7 +420,7 @@ Proof.
     apply In_remove_neq in H7; auto. }
   inversion H; subst.
   auto.
-Qed.      
+Qed.      *)
 
 Fixpoint vertices (g : graph) : list node :=
   match g with
@@ -395,7 +431,7 @@ Fixpoint vertices (g : graph) : list node :=
 Fixpoint edges (g : graph) : list (node * node) :=
   match g with
   |Empty => nil
-  |Node n adj g' => app (map (fun (elem : node) => (n, elem)) adj) (edges g')
+  |Node n adj g' => app (map (fun (elem : node) => (n, elem)) (mset.elements adj)) (edges g')
   end.
 
 Fixpoint Inb (n : node) (l : list node) : bool :=
