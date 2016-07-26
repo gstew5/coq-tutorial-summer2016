@@ -1,9 +1,9 @@
 Set Implicit Arguments.
 
-Require Import ZArith List Bool.
-Require Import MSets.
-Definition node := positive.
+Require Import ZArith List Bool MSets.
 
+Definition node := positive.
+(*Lots of problems with using sets still*)
 Module mset := MSetAVL.Make Positive_as_OT.
 
 Notation node_set := mset.t.
@@ -54,19 +54,16 @@ Check graph.
 Local Open Scope positive_scope.
 Require Import MSets.MSetInterface.
 
-(*For destructing the set like a list, don't know if this will be useful *)
-Notation "x |-> y" := (mset.add x y) (at level 60, no associativity).
-
 Notation "[ ]" := mset.empty.
 
 Notation "[ elt0 , .. , eltn ]" := (mset.add elt0 .. (mset.add eltn (mset.empty )) .. ) (at level 60, right associativity).
+(*Maybe it would also be useful to define some notation or way to print the mset.this output better for a more pleasent view.*)
 
 Example RefSet: node_set :=
   mset.add 4( mset.add 5 ( mset.add 4 mset.empty)).
 
 Compute mset.elements RefSet.
 Print RefSet.
-Check 1 |-> RefSet.
 Check mset.empty.
 
 Check mset.Raw.Node 2%Z mset.Raw.Leaf 1
@@ -104,7 +101,7 @@ Compute mset.elements (adj_of 3 ex2).
 (** Return all neighbors in g of node x. *)
 
 Definition nodeset_contains (x : node) (s : node_set) :=
-  mset.exists_ (fun y => node_eqb y x) s.
+  mset.mem x s.
 
 Fixpoint nodelist_contains (x : node) (l : list node) : bool :=
   match l with
@@ -115,13 +112,37 @@ Fixpoint nodelist_contains (x : node) (l : list node) : bool :=
     (* node_eqb x y || nodelist_contains x l' *)
   end.
 
+Lemma nodelist_nodeset_constains :
+  forall x  (s : node_set),
+    (nodeset_contains x s) =  (nodelist_contains x (mset.elements s)).
+Proof.
+  destruct s as [mset mset_isok].
+  induction mset.
+  + unfold nodeset_contains, mset.mem.
+    simpl.
+    reflexivity.
+  + unfold nodelist_contains, nodeset_contains, mset.mem.
+    simpl.
+    destruct Positive_as_OT.compare_cont.
+    admit.
+
+
+Lemma nodelist_containsP :
+  forall (x : node) (s : node_set),
+    reflect (mset.In x s) (nodeset_contains x s).
+Proof.
+  induction s.
+  unfold nodeset_contains, mset.mem.
+  simpl.
+  admit.
+  
 Lemma nodelist_containsP :
   forall x (l : list node),
     reflect (In x l) (nodelist_contains x l).
 Proof.
   induction l; try constructor; auto.
   simpl.  destruct (node_eqbP x a).
-  constructor; auto.
+  constructor. auto.
   destruct (nodelist_contains x l) eqn:H.
   constructor. right. inversion IHl; auto.
   constructor. intros [H2|H2]. subst x. auto. inversion IHl; auto.
@@ -322,21 +343,21 @@ Fixpoint remove_nodeS (x : node) (g : graph) : graph :=
   end.
 
 (*Changing the graph to use node_sets breaks everything in comments here.
-Fixpoint remove_node (x : node) (g : graph) : graph :=
+*)Fixpoint remove_node (x : node) (g : graph) : graph :=
   match g with
   | Empty => Empty
   | Node y adj g' =>
     if node_eqb x y then remove_node x g'
-    else Node y (remove x adj) (remove_node x g')
+    else Node y (removeS x adj) (remove_node x g')
   end.
 
 Lemma remove_node_neighbors_of :
   forall x y g,
     x <> y -> 
-    neighbors_of y (remove_node x g) = remove x (neighbors_of y g).
+    neighbors_of y (remove_node x g) = removeS x (neighbors_of y g).
 Proof.
   intros x y g H; induction g; auto.
-  simpl.
+  simpl. 
   destruct (node_eqb x n) eqn:H2.
   { rewrite node_eqb_eq in H2; subst n.
     destruct (node_eqb y x) eqn:H3.
