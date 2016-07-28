@@ -154,7 +154,7 @@ Qed.
 	    
 Lemma Pow_simpl :
   forall (z : R) (q r : nat),
-    0 < z -> (Rpower z (INR q / INR r))^r = z^q.
+    0 < z -> (0 < r)%nat -> (Rpower z (INR q / INR r))^r = z^q.
 Proof.
  (*** Fill in proof here. ***)
 Admitted.
@@ -164,6 +164,10 @@ Admitted.
 							      
 Theorem Root_finding_l :
   forall x y z q r:nat,
+    (0 < x)%nat ->
+    (0 < y)%nat ->
+    (0 < r)%nat ->
+    (0 < z)%nat -> 
     (INR x / INR y)^r < (INR z)^q ->
     (INR x / INR y) < (Rpower (INR z) (INR q / INR r)).
 Proof.
@@ -173,7 +177,7 @@ Admitted.
 (* Exercise 3 *)
 (* Prove that 1.414 < sqrt(2) *)	    
 	    
-Theorem Sqr_2_lt_1414: 1414/1000 < Rpower 2 (1/2).
+Theorem Sqr_2_lt_1414: 14/10 < Rpower 2 (1/2).
 Proof.
   (*** Fill in proof here. ***)
 Admitted.
