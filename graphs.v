@@ -112,30 +112,17 @@ Fixpoint nodelist_contains (x : node) (l : list node) : bool :=
     (* node_eqb x y || nodelist_contains x l' *)
   end.
 
-Lemma nodelist_nodeset_constains :
-  forall x  (s : node_set),
-    (nodeset_contains x s) =  (nodelist_contains x (mset.elements s)).
-Proof.
-  destruct s as [mset mset_isok].
-  induction mset.
-  + unfold nodeset_contains, mset.mem.
-    simpl.
-    reflexivity.
-  + unfold nodelist_contains, nodeset_contains, mset.mem.
-    simpl.
-    destruct Positive_as_OT.compare_cont.
-    admit.
-
-
 Lemma nodelist_containsP :
   forall (x : node) (s : node_set),
     reflect (mset.In x s) (nodeset_contains x s).
 Proof.
-  induction s.
-  unfold nodeset_contains, mset.mem.
-  simpl.
-  admit.
-  
+  intros.
+  apply iff_reflect.
+  unfold nodeset_contains.
+  symmetry.
+  apply mset.mem_spec.
+Qed.
+
 Lemma nodelist_containsP :
   forall x (l : list node),
     reflect (In x l) (nodelist_contains x l).
