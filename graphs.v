@@ -62,9 +62,57 @@ Fixpoint adj_of (x : node) (g : graph) : list node :=
   match g with
   | Empty => nil
   | Node y adj g' =>
-    if node_eqb x y then adj
+    if node_eqb x y then adj ++ adj_of x g'
     else adj_of x g'
   end.
+
+Fixpoint node_list_eqb (l1 l2 : list node) : bool :=
+  match l1 with
+  | nil => match l2 with
+           | nil => true
+           | cons _ _ => false
+           end
+  | cons a1 l1' => match l2 with
+                  | nil => false
+                  | cons a2 l2' => if node_eqb a1 a2
+                                     then node_list_eqb l1' l2'
+                                     else false
+                  end
+  end.
+
+Lemma node_list_eqb_refl l1 : node_list_eqb l1 l1 = true.
+Proof.
+  induction l1; auto.
+  simpl.
+  rewrite node_eqb_refl.
+  apply IHl1.
+Qed.
+
+Lemma node_list_eqbP l1 l2 : reflect (l1 = l2) (node_list_eqb l1 l2).
+Proof.
+  generalize l2; clear l2.
+  induction l1; intros l2;
+  apply iff_reflect;
+  split; intros h.
+  subst; auto.
+  induction l2; auto.
+  inversion h.
+  subst.
+  apply node_list_eqb_refl.
+  simpl in h.
+  destruct l2.
+  inversion h.
+  case_eq (node_eqb a n);
+  intros h0.
+  rewrite h0 in h.
+  specialize (IHl1 l2).
+  apply reflect_iff in IHl1.
+  apply IHl1 in h.
+  rewrite node_eqb_eq in h0.
+  subst; auto.
+  rewrite h0 in h.
+  inversion h.
+Qed.
 
 (** Return all neighbors in g of node x. *)
 
@@ -98,14 +146,81 @@ Fixpoint neighbors_of (x : node) (g : graph) : list node :=
          else neighbors_of x g'
   end.
 
+Inductive neighbors_Of : node -> graph -> list node -> Prop :=
+| NO_empty : forall x, neighbors_Of x Empty nil
+| NO_inl : forall x l l' g,
+             neighbors_Of x g l ->
+              neighbors_Of x (Node x l' g) (l' ++ l)
+| NO_inr : forall x y l l' g,
+             x <> y ->
+             In x l' -> 
+             neighbors_Of x g l ->
+               neighbors_Of x (Node y l' g) (y::l) 
+| NO_subg : forall x y l l' g,
+              x<> y ->
+              ~ In x l' ->
+              neighbors_Of x g l ->
+                neighbors_Of x (Node y l' g) l.
+(*
+Lemma neighbors_ofP : forall x g l,
+  reflect (neighbors_Of x g l) (list_eq_dec (neighbors_of x g) l).
+*)
 Definition is_neighbor (x y : node) (g : graph) : bool :=
   nodelist_contains x (neighbors_of y g).
+
+Lemma is_neigbor_eq (x y : node) (g : graph) :
+  In y (neighbors_of x g) <-> In x (adj_of y g) \/  In y (adj_of x g).
+Proof.
+  induction g;
+  split; intros h0.
+  inversion h0.
+  destruct h0 as [h0 | h0];
+  inversion h0.
+  {
+    admit.
+  }
+  {
+    simpl in *. case_eq (node_eqb x n); intros h1.
+    rewrite node_eqb_eq in h1; subst.
+    rewrite node_eqb_refl in h0.
+    destruct h0 as [h0 | h0].
+    simpl in h0.
+  }
+  simpl. simpl in h0.
+  case_eq (node_eqb x n); intros h1.
+  rewrite node_eqb_eq in h1. subst.
+  rewrite node_eqb_refl in h0.
+  apply in_app_or in h0.
+  destruct h0 as [h0 | h0].
+  right; auto.
+  apply in_or_app. left; auto.
+  apply IHg in h0.
+  destruct h0 as [h0 | h0].
+  left. case (node_eqb);
+  [apply in_or_app; right | ];
+  auto.
+  right. apply in_or_app. right; auto.
+  rewrite h1 in h0.
+  case_eq (node_eqb y n); intros h2.
+  rewrite node_eqb_eq in h2. subst.
+  unfold neighbors_of in IHg.
+  destruct (nodelist_contains).
+  right. apply in_or_app. right; auto.
+Admitted.
 
 Inductive is_Neighbor : node -> node -> graph -> Prop :=
 | IN_inl : forall x y l g, In y l -> is_Neighbor x y (Node x l g)
 | IN_inr : forall x y l g, In x l -> is_Neighbor x y (Node y l g)
 | IN_subg : forall x y g, is_Neighbor x y g ->
               forall z l, is_Neighbor x y (Node z l g).
+
+Lemma is_Neighbor_symm x y g :
+  is_Neighbor x y g -> is_Neighbor y x g.
+Proof.
+  induction g; intros h;
+  inversion h; subst;
+  constructor; auto.
+Qed.
 
 Lemma is_NeighborP : forall x y g,
   reflect (is_Neighbor x y g) (is_neighbor x y g).
@@ -127,6 +242,7 @@ Proof.
     fold neighbors_of.
     apply in_or_app.
     right.
+  
     admit.
     apply (reflect_iff (In y l) (nodelist_contains y l)) in  H2.
     rewrite H2. simpl; left; auto.
@@ -139,17 +255,10 @@ Proof.
     admit.
   }
   {
-    admit.
+    admit. 
   }
 Admitted.
 
-Lemma is_Neighbor_symm x y g :
-  is_Neighbor x y g -> is_Neighbor y x g.
-Proof.
-  induction g; intros h;
-  inversion h; subst;
-  constructor; auto.
-Qed.
 
 Fixpoint graph_contains (x : node) (g : graph) : bool :=
   match g with
@@ -447,9 +556,8 @@ Inductive path (g : graph) : node -> node -> list node -> Prop :=
               path g x z (x::y::l).
 
 Print ex1.
-Definition ex3 : graph := Node 1 nil (Node 2 nil (Node 3 nil Empty)).
 
-Lemma bleh : path ex1 3 1 (3::2::1::nil).
+Lemma path_ex1 : path ex1 3 1 (3::2::1::nil).
 Proof.
   apply step.
   do 2 apply gc_subg.
@@ -465,6 +573,15 @@ Proof.
   apply IN_inr.
   left. auto.
 Qed.
+
+Inductive independent_Set : list node -> graph -> Prop :=
+| IS_nil : forall g, independent_Set nil g
+| IS_cons : forall x l g,
+              graph_Contains x g ->
+              independent_Set l g ->
+              (forall y, In y l -> ~ is_Neighbor x y g) ->
+                independent_Set (x :: l) g.
+ 
 
 (** Other potential operators/predicates/definitions: 
     - definition of paths from x <-> y
