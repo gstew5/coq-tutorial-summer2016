@@ -665,3 +665,46 @@ Proof.
   rewrite H1. rewrite plus_INR. unfold Rdiv. rewrite Rmult_plus_distr_r.
   fold (Rdiv (INR a) (3)). unfold Rdiv in H. rewrite Rpower_plus.
   apply Rmult_le_compat; try apply pos_INR. apply n_q. auto. Qed.
+
+Theorem ex2_tight : forall (n : nat),
+  n >= 3 ->
+  exists (l : list nat),
+    sum l = n /\ INR (prod l) = I n.
+Proof.
+  intros n H. destruct n. inversion H. destruct n. apply le_S_n in H; inversion H.
+  destruct n. repeat apply le_S_n in H; inversion H. clear H.
+  assert (S (S (S n)) = n + 3). rewrite plus_comm. reflexivity.
+  rewrite H; clear H. induction n using strong_induction.
+  { unfold I. simpl. rewrite (Rplus_comm 2 1). unfold Rdiv. rewrite Rinv_r; discrR.
+    rewrite Rpower_1; prove_sup. exists (List.cons 3 List.nil). simpl.
+    split; [reflexivity | Rcompute].
+  } destruct n. simpl.
+  { exists (List.cons 4 List.nil). simpl. split. reflexivity.
+    unfold I. simpl. assert (2 + 1 + 1 = 4)%R. Rcompute. rewrite H0; clear H0.
+    rewrite Rminus_diag_eq; trivial. unfold Rdiv. rewrite Rmult_0_l. rewrite Rpower_O.
+    symmetry; apply Rmult_1_r. prove_sup.
+  } destruct n. simpl.
+  { exists (List.cons 3 (List.cons 2 List.nil)). unfold I; simpl. split; trivial.
+    assert (2 + 1 = 3)%R. Rcompute. rewrite H0; clear H0. assert (3 + 1 + 1 + 1 = 6)%R. Rcompute.
+    rewrite H0; clear H0. unfold Rdiv; rewrite Rinv_r; discrR. rewrite Rpower_1; prove_sup.
+    reflexivity.
+  } assert (forall n, S (S (S n)) = n + 3). intros. rewrite plus_comm; reflexivity. rewrite H0.
+  assert (n <= S (S n)). auto. assert (H2 := H n H1). destruct H2 as [l H2].
+  exists (List.cons 3 l). simpl. rewrite H0. destruct H2 as [H2sum H2prod]. rewrite H2sum.
+  split. reflexivity. fold (3 * (prod l)). rewrite mult_INR. rewrite H2prod. clear.
+  assert ((n + 3 + 3) mod 3 = (n + 3) mod 3). rewrite <- Nat.add_mod_idemp_r; auto.
+  unfold I. rewrite H. assert (INR 3 = 3)%R. simpl; Rcompute. destruct (eq_nat_dec ((n+3) mod 3) 0).
+  { unfold Rdiv. rewrite (plus_INR (n + 3)). rewrite H0. rewrite (Rmult_plus_distr_r _ _ (/3)).
+    rewrite Rpower_plus. rewrite Rmult_comm. rewrite Rinv_r; discrR. rewrite Rpower_1; prove_sup.
+    reflexivity.
+  } destruct (eq_nat_dec ((n+3) mod 3) 1).
+  { rewrite (plus_INR (n + 3)). rewrite H0. rewrite Rmult_comm.
+    assert (INR (n + 3) + 3 - 4 = INR (n + 3) - 4 + 3)%R. field. rewrite H1; clear H1.
+    unfold Rdiv. rewrite (Rmult_plus_distr_r _ _ (/3)). rewrite Rpower_plus.
+    rewrite Rinv_r; discrR. rewrite Rpower_1; prove_sup. apply Rmult_assoc.
+  } assert (n + 3 + 3 - 2 = n + 3 - 2 + 3). rewrite plus_comm. rewrite (plus_comm (n + 3 - 2)).
+  rewrite Nat.add_sub_assoc. reflexivity. rewrite plus_comm. repeat apply le_n_S. apply Peano.le_0_n.
+  rewrite H1; clear H1. rewrite plus_INR. rewrite H0. rewrite Rmult_comm. unfold Rdiv.
+  rewrite (Rmult_plus_distr_r _ _ (/3)). rewrite Rpower_plus. rewrite Rinv_r; discrR.
+  rewrite Rpower_1; prove_sup. apply Rmult_assoc.
+Qed.
