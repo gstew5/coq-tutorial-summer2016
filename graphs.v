@@ -212,7 +212,6 @@ Qed.
 Lemma ex1_graph_ok : graph_ok ex1.
 Proof.
   unfold ex1; repeat (constructor; auto).
-  inversion 1; auto. congruence.
   (*apply NodeOk; auto.
   apply NodeOk; auto.
   apply NodeOk; auto.
@@ -220,6 +219,28 @@ Proof.
 Qed.  
 
 (*Change this to MSet filter sometime*)
+
+Lemma msetfilter_property :
+  forall (A : Type) (s : node_set) (f : mset.elt -> bool),
+    mset.for_all f ( mset.filter f s) = true.
+Proof.
+  destruct s.
+  induction this as [IH1 | IH2]. (* I dont remember how to name things*)
+  {
+  unfold mset.filter.
+  simpl. unfold mset.for_all.
+  simpl. auto.
+  }
+  intros f. destruct ( {|
+        mset.this := mset.Raw.Node IH2 this1 t this2;
+        mset.is_ok := is_ok |}) eqn:H.  rewrite <-H.
+  destruct f; auto.
+  {
+    admit.
+  } admit.
+  Admitted.
+
+
 Lemma filter_property :
   forall (A : Type) (l : list A) (f : A -> bool),
     forallb f (filter f l) = true.
@@ -248,6 +269,12 @@ Proof.
   destruct (negb _); auto.
   simpl. f_equal. auto.
 Qed.  
+
+(** 
+  mset.remove_spec:
+  forall (s : node_set) (x y : mset.elt),
+  mset.In y (mset.remove x s) <-> mset.In y s /\ y <> x 
+These two lemmas are given **)
 
 Lemma In_remove_weaken :
   forall x y l,
@@ -307,40 +334,50 @@ Fixpoint remove_nodeS (x : node) (g : graph) : graph :=
     else Node y (removeS x adj) (remove_node x g')
   end.
 
+
 Lemma remove_node_neighbors_of :
   forall x y g,
     x <> y -> 
     neighbors_of y (remove_node x g) = removeS x (neighbors_of y g).
 Proof.
-  intros x y g H; induction g; auto.
-  simpl. 
-  destruct (node_eqb x n) eqn:H2.
-  { rewrite node_eqb_eq in H2; subst n.
-    destruct (node_eqb y x) eqn:H3.
-    { rewrite node_eqb_eq in H3; subst y.
-      exfalso; apply H; auto. }
-    rewrite IHg.
-    destruct (nodelist_contains _ _); auto.
-    simpl. rewrite node_eqb_refl. auto. }
-  destruct (node_eqb y n) eqn:H3.
-  { simpl; rewrite H3; auto.
-    rewrite IHg, remove_app; auto. }
-  simpl. rewrite H3.
-  destruct (nodelist_containsP y (remove x l)).
-  { destruct (nodelist_containsP y l).
-    simpl. rewrite H2. simpl. rewrite IHg. auto.
-    destruct (nodelist_containsP y l). congruence.
-    destruct (nodelist_containsP y (remove x l)); [|congruence].
-    apply In_remove_weaken in i; contradiction. }
-  destruct (nodelist_containsP y l); auto.
-  simpl. rewrite H2. simpl. rewrite IHg.
-  exfalso. apply H. apply not_In_remove_eq in n0; auto.
-Qed.    
+  intros x y g H.
+  induction g. simpl. unfold removeS.
+  destruct (mset.filter (fun z : mset.elt => negb (node_eqb x z))).
+Admitted.  
+  
+  
+
+  
+(* Old proof for my reference while I go through. *)
+(*   intros x y g H; induction g; auto. *)
+(*   simpl.  *)
+(*   destruct (node_eqb x n) eqn:H2. *)
+(*   { rewrite node_eqb_eq in H2; subst n. *)
+(*     destruct (node_eqb y x) eqn:H3. *)
+(*     { rewrite node_eqb_eq in H3; subst y. *)
+(*       exfalso; apply H; auto. } *)
+(*     rewrite IHg. *)
+(*     destruct (nodelist_contains _ _); auto. *)
+(*     simpl. rewrite node_eqb_refl. auto. } *)
+(*   destruct (node_eqb y n) eqn:H3. *)
+(*   { simpl; rewrite H3; auto. *)
+(*     rewrite IHg, remove_app; auto. } *)
+(*   simpl. rewrite H3. *)
+(*   destruct (nodelist_containsP y (remove x l)). *)
+(*   { destruct (nodelist_containsP y l). *)
+(*     simpl. rewrite H2. simpl. rewrite IHg. auto. *)
+(*     destruct (nodelist_containsP y l). congruence. *)
+(*     destruct (nodelist_containsP y (remove x l)); [|congruence]. *)
+(*     apply In_remove_weaken in i; contradiction. } *)
+(*   destruct (nodelist_containsP y l); auto. *)
+(*   simpl. rewrite H2. simpl. rewrite IHg. *)
+(*   exfalso. apply H. apply not_In_remove_eq in n0; auto. *)
+(* Qed.     *)
 
 Lemma remove_node_contains :
   forall x y g,
     x <> y -> 
-    graph_contains y (remove_node x g) = graph_contains y g.
+    graph_contains y (remove_nodeS x g) = graph_contains y g.
 Proof.
   intros x y g H; induction g; auto.
   simpl.
@@ -367,10 +404,27 @@ Proof.
   auto.
 Qed.
 
+Lemma In_removeS_weaken :
+  forall x y (s : node_set),
+  In y (mset.elements (removeS x s)) -> In y (mset.elements s).
+Proof.
+  destruct s.
+  induction this.
+  simpl. intros.
+  inversion H.
+  intros.
+Admitted.
+
+Lemma In_removeS_eq :
+  forall x y (s : node_set),
+  In y (mset.elements (removeS x s)) -> x <> y.
+Proof.
+  Admitted.
+
 Lemma remove_node_ok :
   forall x g,
     graph_ok g ->
-    graph_ok (remove_node x g).
+    graph_ok (remove_nodeS x g).
 Proof.
   intros x g H.
   induction g.
@@ -384,20 +438,19 @@ Proof.
   { inversion H; subst.
     rewrite remove_node_contains; auto.
     intros H3; subst x. rewrite node_eqb_refl in H2. congruence. }
-  { apply remove_NoDup; auto.
-    inversion H; auto. }
   { inversion H; subst.
-    specialize (IHg H7). clear H7.
+    specialize (IHg H6). 
     rewrite forallb_forall.
     intros y H7.
-    rewrite forallb_forall in H6.
+    simpl.
+    rewrite forallb_forall in H5.
     rewrite remove_node_contains.
-    { apply H6.
-      apply In_remove_weaken in H7; auto. }
-    apply In_remove_neq in H7; auto. }
+    { apply H5. apply In_removeS_weaken in H7.  apply H7. }
+      (* Should really get away from using the elements function *)
+   apply  In_removeS_eq in H7; auto. }
   inversion H; subst.
   auto.
-Qed.      *)
+Qed.  
 
 Fixpoint vertices (g : graph) : list node :=
   match g with
@@ -409,12 +462,6 @@ Fixpoint edges (g : graph) : list (node * node) :=
   match g with
   |Empty => nil
   |Node n adj g' => app (map (fun (elem : node) => (n, elem)) (mset.elements adj)) (edges g')
-  end.
-
-Fixpoint Inb (n : node) (l : list node) : bool :=
-  match l with
-  |nil => false
-  | h :: t => if node_eqb n h then true else Inb n t
   end.
 
 Fixpoint isSortedG (g : graph) : bool :=
