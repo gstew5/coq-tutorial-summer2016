@@ -276,6 +276,27 @@ Qed.
   mset.In y (mset.remove x s) <-> mset.In y s /\ y <> x 
 These two lemmas are given **)
 
+Lemma In_removeS_weaken :
+  forall x y (s : node_set),
+  In y (mset.elements (removeS x s)) -> In y (mset.elements s).
+Proof.
+  destruct s.
+  induction this.
+  simpl. intros. inversion H. 
+  unfold removeS. intros.
+  destruct mset.elements.
+  inversion H.
+  
+
+
+Admitted.
+
+Lemma In_removeS_eq :
+  forall x y (s : node_set),
+  In y (mset.elements (removeS x s)) -> x <> y.
+Proof.
+Admitted.
+
 Lemma In_remove_weaken :
   forall x y l,
     In y (remove x l) -> In y l.
@@ -403,23 +424,6 @@ Proof.
   intros H4. apply In_remove_weaken in H4; contradiction.
   auto.
 Qed.
-
-Lemma In_removeS_weaken :
-  forall x y (s : node_set),
-  In y (mset.elements (removeS x s)) -> In y (mset.elements s).
-Proof.
-  destruct s.
-  induction this.
-  simpl. intros.
-  inversion H.
-  intros.
-Admitted.
-
-Lemma In_removeS_eq :
-  forall x y (s : node_set),
-  In y (mset.elements (removeS x s)) -> x <> y.
-Proof.
-  Admitted.
 
 Lemma remove_node_ok :
   forall x g,
