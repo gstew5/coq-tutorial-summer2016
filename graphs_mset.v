@@ -264,7 +264,6 @@ Lemma msetfilter_property :
     mset.for_all f ( mset.filter f s) = true.
 Proof.
   intros s f.
-  SearchAbout mset.for_all.
   rewrite mset.for_all_spec.
   unfold mset.For_all.
   intros x H0.
@@ -277,17 +276,6 @@ Proof.
   unfold Proper; intros; apply f_equal; auto.
 Qed.
 
-Lemma filter_property :
-  forall (A : Type) (l : list A) (f : A -> bool),
-    forallb f (filter f l) = true.
-Proof.
-  induction l.
-  { simpl. auto. }
-  simpl. intros f. destruct (f a) eqn:H.
-  { simpl. rewrite H. simpl. apply IHl. }
-  apply IHl.
-Qed.  
-
 Definition remove (x : node) (adj : node_set) : node_set :=
   mset.filter (fun z => negb (node_eqb x z)) adj.
 
@@ -295,48 +283,7 @@ Lemma remove_union :
   forall x s1 s2,
     remove x (mset.union s1 s2) = mset.union (remove x s1) (remove x s2).
 Proof.
-  Admitted.
-
-(* Lemma In_remove_weaken : *)
-(*   forall x y l, *)
-(*     In y (remove x l) -> In y l. *)
-(* Proof. *)
-(*   induction l; auto. *)
-(*   simpl. destruct (negb _). *)
-(*   { inversion 1; subst. *)
-(*     left; auto. *)
-(*     right; auto. } *)
-(*   intros H; right; apply IHl; auto. *)
-(* Qed.     *)
-
-(* Lemma In_remove_neq : *)
-(*   forall x y l, *)
-(*     In y (remove x l) -> x <> y. *)
-(* Proof. *)
-(*   intros x y. *)
-(*   induction l; auto. *)
-(*   simpl. destruct (negb _) eqn:H. *)
-(*   { assert (H2: x <> a). *)
-(*     { intros H2. rewrite H2, node_eqb_refl in H; simpl in H; congruence. } *)
-(*     inversion 1; subst; auto. } *)
-(*   auto. *)
-(* Qed.     *)
-
-(* Lemma not_In_remove_eq : *)
-(*   forall x y l, *)
-(*     In y l -> ~In y (remove x l) -> x = y. *)
-(* Proof. *)
-(*   intros x y. *)
-(*   induction l; auto. *)
-(*   { simpl. congruence. } *)
-(*   simpl. intros [H|H]. *)
-(*   { subst y. intros H. *)
-(*     destruct (negb _) eqn:H2. *)
-(*     rewrite not_in_cons in H. destruct H. exfalso; apply H; auto. *)
-(*     destruct (node_eqbP x a); auto. simpl in H2. congruence. } *)
-(*   destruct (node_eqbP x a); auto. *)
-(*   unfold negb. rewrite not_in_cons. intros [H1 H2]. auto. *)
-(* Qed. *)
+Admitted.
 
 Fixpoint remove_node (x : node) (g : graph) : graph :=
   match g with
@@ -353,6 +300,7 @@ Lemma remove_node_neighbors_of :
 Proof.
   intros x y g H.
   induction g. simpl. unfold remove.
+  
   unfold mset.filter.
   simpl.    
   destruct (mset.filter (fun z : mset.elt => negb (node_eqb x z))).
@@ -421,18 +369,27 @@ Lemma In_remove_weaken :
   forall x y (s : node_set),
   mset.In y (remove x s) -> mset.In y s.
 Proof.
-  destruct s.
-  induction this.
-  simpl. intros. inversion H. 
-  unfold remove. intros.
-  destruct mset.elements.
-Admitted.
-
+  intros.
+  unfold remove in H.
+  apply mset.filter_spec in H.
+  destruct H. auto.
+  unfold respectful; unfold Proper; auto;
+  intros. f_equal. rewrite H1. auto.
+Qed.
+  
 Lemma In_remove_eq :
   forall x y (s : node_set),
   mset.In y (remove x s) -> x <> y.
 Proof.
-Admitted.
+  intros.
+  unfold remove in H.
+  apply mset.filter_spec in H.
+  destruct H. unfold node_eqb in H0.
+  apply Pos.eqb_neq.
+  apply negb_true_iff in H0. auto.
+  unfold respectful. unfold Proper; auto.
+  intros. f_equal. rewrite H1. auto.
+Qed.
 
 Lemma remove_node_ok :
   forall x g,
