@@ -178,22 +178,12 @@ Lemma add_node_ok :
 Proof.
   intros x adj g H.
   unfold add_node.
-  destruct (negb (graph_contains x g)
-                 && negb (nodeset_contains x adj)
-                 && mset.for_all (fun y : node => graph_contains y g) adj) eqn:H2.
-  symmetry in H2; apply andb_true_eq in H2; destruct H2.
-  apply andb_true_eq in H0. destruct H0. remember H0.
-  destruct (negb (graph_contains x g)) eqn:H3; destruct (negb (nodeset_contains x adj)) eqn:H4; destruct (mset.for_all (fun y : mset.elt => graph_contains y g) adj) eqn:H5; auto. simpl.
+  destruct (negb (graph_contains x g)) eqn:H3;
+  destruct (negb (nodeset_contains x adj)) eqn:H4;
+  destruct (mset.for_all (fun y : mset.elt => graph_contains y g) adj) eqn:H0; auto. simpl.
   apply NodeOk; auto.
   apply negb_true_iff. auto.
-Admitted.
-(*   apply NodeOk. *)
-(*   { symmetry in H0; rewrite negb_true_iff in H0; apply H0. } *)
-(*   { symmetry in H2. generalize H2. destruct (negb (nodeset_contains x adj)). auto. auto. *)
-(*  } *)
-(*   { auto. } *)
-(*   apply H. *)
-(* Qed.     *)
+Qed.
 
 Lemma ex1_graph_ok : graph_ok ex1.
 Proof.
