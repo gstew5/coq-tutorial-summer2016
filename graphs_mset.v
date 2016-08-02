@@ -132,26 +132,6 @@ Inductive graph_ok : graph -> Prop :=
 
 Compute mset.elements ([1, 1, 2]).
 
-(* Fixpoint node_nodup (l : list node) : bool := *)
-(*   match l with *)
-(*   | nil => true *)
-(*   | x :: l' => *)
-(*     if nodelist_contains x l' then false *)
-(*     else node_nodup l' *)
-(*   end. *)
-
-(* Lemma node_nodupP : *)
-(*   forall l, reflect (NoDup l) (node_nodup l). *)
-(* Proof. *)
-(*   induction l. *)
-(*   constructor. constructor. *)
-(*   simpl. destruct (nodelist_containsP a l). *)
-(*   constructor. inversion 1; subst. contradiction. *)
-(*   destruct (node_nodup l) eqn:H. *)
-(*   constructor. constructor; auto. inversion IHl; auto. *)
-(*   constructor. inversion 1; subst. inversion IHl; contradiction. *)
-(* Qed.   *)
-
 (** A so-called "smart constructor" for "Node". 
     We enforce the following two properties: 
       1) "x" is not already in the graph; 
@@ -163,14 +143,6 @@ Definition add_node (x : node) (adj : node_set) (g : graph) : graph :=
   then Node x adj g
   else g.
 
-(* Definition add_node (x : node) (adj : list node) (g : graph) : graph := *)
-(*   if negb (graph_contains x g) *)
-(*           && node_nodup adj *)
-(*           && forallb (fun y => graph_contains y g) mset.elements adj *)
-(*   then Node x adj g *)
-(*   else g. *)
-
-(*Slight changes to destructs in this proof, I hope i'm not totally off track doing all this but even if I am it was a good exercise.*)
 Lemma add_node_ok :
   forall x adj g,
     graph_ok g ->
@@ -193,8 +165,6 @@ Proof.
   apply NodeOk; auto.
   apply EmptyOk.*)
 Qed.  
-
-(*Change this to MSet filter sometime*)
 
 Lemma msetfilter_property :
   forall (A : Type) (s : node_set) (f : mset.elt -> bool),
