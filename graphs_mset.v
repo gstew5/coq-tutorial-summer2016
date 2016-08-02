@@ -113,6 +113,9 @@ Fixpoint neighbors_of (x : node) (g : graph) : node_set:=
          else neighbors_of x g'
   end.
 
+Definition is_neighbor (x y : node) (g : graph) : bool :=
+  nodeset_contains x (neighbors_of y g).
+
 Fixpoint graph_contains (x : node) (g : graph) : bool :=
   match g with
   | Empty => false
@@ -120,6 +123,99 @@ Fixpoint graph_contains (x : node) (g : graph) : bool :=
     if node_eqb x y then true
     else graph_contains x g'
   end.
+
+Inductive graph_Contains : node -> graph ->  Prop :=
+| gc_inst : forall x g l, graph_Contains x (Node x l g) 
+| gc_subg : forall x g, graph_Contains x g ->
+          forall y l, graph_Contains x (Node y l g).
+
+Lemma graph_containsP : forall x g,
+  reflect (graph_Contains x g) (graph_contains x g).
+Proof.
+  intros x g.
+  induction g.
+  constructor.
+  intros h.
+  inversion h.
+  simpl.
+  case_eq (node_eqb x n);
+  intros h.
+  apply node_eqb_eq in h.
+  subst.
+  constructor.
+  constructor.
+  case_eq (graph_contains x g);
+  intros h1.
+  apply ReflectT.
+  apply gc_subg.
+  destruct IHg; auto.
+  inversion h1.
+  constructor.
+  intros h2.
+  inversion h2; subst.
+  rewrite node_eqb_refl in h.
+  inversion h.
+  apply reflect_iff in IHg.
+  apply IHg in H1.
+  rewrite H1 in h1.
+  inversion h1.
+Qed.
+
+Inductive is_Neighbor : node -> node -> graph -> Prop :=
+| IN_inl : forall x y l g, mset.In y l -> is_Neighbor x y (Node x l g)
+| IN_inr : forall x y l g, mset.In x l -> is_Neighbor x y (Node y l g)
+| IN_subg : forall x y g, is_Neighbor x y g ->
+              forall z l, is_Neighbor x y (Node z l g).
+
+Lemma is_Neighbor_symm x y g :
+  is_Neighbor x y g -> is_Neighbor y x g.
+Proof.
+  induction g; intros h;
+  inversion h; subst;
+  constructor; auto.
+Qed.
+
+Lemma is_NeighborP : forall x y g,
+  reflect (is_Neighbor x y g) (is_neighbor x y g).
+Proof.
+  intros x y g.
+  induction g.
+  constructor.
+  intros h.
+  inversion h.
+  apply iff_reflect.
+  split; intros h.
+  inversion h; subst.
+  {
+    unfold is_neighbor.
+    apply (reflect_iff (mset.In n (neighbors_of y (Node n t g)))).
+    apply nodelist_containsP.
+    unfold neighbors_of.
+    destruct node_eqb;
+    fold neighbors_of.
+    apply mset.union_spec.
+    
+    right.
+    unfold neighbors_of.
+    
+
+    
+  
+    admit.
+  (*   apply (reflect_iff (In y l) (nodelist_contains y l)) in  H2. *)
+  (*   rewrite H2. simpl; left; auto. *)
+  (*   apply nodelist_containsP. *)
+  (* } *)
+  (* { *)
+    admit.
+  }
+  {
+    admit.
+  }
+  {
+    admit. 
+  }
+Admitted.
 
 Inductive graph_ok : graph -> Prop :=
 | EmptyOk : graph_ok Empty
@@ -167,9 +263,46 @@ Proof.
 Qed.  
 
 Lemma msetfilter_property :
-  forall (A : Type) (s : node_set) (f : mset.elt -> bool),
+  forall (s : node_set) (f : mset.elt -> bool),
     mset.for_all f ( mset.filter f s) = true.
 Proof.
+  intros s f.
+  SearchAbout mset.for_all.
+  rewrite mset.for_all_spec.
+  unfold mset.For_all.
+  intros x H0.
+  unfold mset.for_all.
+  rewrite mset.filter_spec in H0.
+  destruct H0 as [_ H0].
+  auto.  unfold Proper.
+  Check (eq ==> eq)%signature.  constructor.
+  induction H0.
+  SearchAbout mset.Raw.for_all.
+  rewrite mset.Raw.for_all_spec.
+  unfold mset.Raw.For_all.
+  intros x H0.
+  induction ((mset.this (mset.filter f s))).
+  auto.
+  fold mset.Raw.for_all in *.
+
+  
+  case_eq (f t3).
+  intros.
+  rewrite IHt1.
+  auto.
+  intros.
+
+induction s.
+  
+  unfold mset.for_all.
+  unfold mset.Raw.for_all.
+  simpl.
+  
+
+
+
+  unfold mset.for_all.
+  
   destruct s.
   induction this as [IH1 | IH2]. (* I dont remember how to name things*)
   {
@@ -391,17 +524,30 @@ Proof.
     intros H3; subst x. rewrite node_eqb_refl in H2. congruence. }
   { inversion H; subst.
     specialize (IHg H6). 
-    rewrite forallb_forall.
-    intros y H7.
-    simpl.
-    rewrite forallb_forall in H5.
-    rewrite remove_node_contains.
-    { apply H5. apply In_removeS_weaken in H7.  apply H7. }
-      (* Should really get away from using the elements function *)
-   apply  In_removeS_eq in H7; auto. }
-  inversion H; subst.
-  auto.
-Qed.  
+    Admitted.
+    (* rewrite forallb_forall. *)
+(*     intros y H7. *)
+(*     simpl. *)
+(*     rewrite forallb_forall in H5. *)
+(*     rewrite remove_node_contains. *)
+(*     { apply H5. apply In_removeS_weaken in H7.  apply H7. } *)
+(*       (* Should really get away from using the elements function *) *)
+(*    apply  In_removeS_eq in H7; auto. } *)
+(*   inversion H; subst. *)
+(*   auto. *)
+(* Qed.   *)
+
+Inductive path (g : graph) : node -> node -> list node -> Prop :=
+| start : forall x, graph_Contains x g -> path g x x (x::nil)
+| step  : forall x y z l,
+            graph_Contains x g ->
+            path g y z (y::l) ->
+            is_Neighbor x y g ->
+              path g x z (x::y::l).
+
+
+
+
 
 Fixpoint vertices (g : graph) : list node :=
   match g with
