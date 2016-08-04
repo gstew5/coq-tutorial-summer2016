@@ -567,3 +567,15 @@ Proof.
   rewrite H2. rewrite <- I_unfold. rewrite <- L_unfold.
   rewrite mult_INR; simpl; rewrite H1; field. omega.
 Qed.
+
+Lemma I_decomp1 : forall (n : nat),
+  (6 <= n)%nat -> I (n - 1) + I (n - 4) <= I n.
+Proof. Admitted.
+
+Lemma I_decomp2 : forall (n : nat),
+  (6 <= n)%nat -> 2 * I (n - 2) <= I (n).
+Proof. Admitted.
+
+Lemma I_decomp3 : forall (n : nat),
+  (6 <= n)%nat -> 2*I(n-3) + I(n - 4) <= I n.
+Proof. Admitted.
