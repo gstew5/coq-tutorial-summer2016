@@ -3,18 +3,11 @@ Set Implicit Arguments.
 Require Import ZArith List Bool.
 Require Import MSets MSetWeakList MSetRBT.
 
-Module SetFunctorList (E : OrderedType) : WSetsOn E
-  := MSetWeakList.Make E.
-
-Module SetFunctorRBT (E : OrderedType) 
-  : MSetInterface.S with Module E := E
-  := MSetRBT.Make E.
-
 Module Type RawGraph (Node : UsualOrderedType) (F : WSetsOn).
   Notation node := Node.t.
   Module NodeSet := F Node.
   Notation node_set := NodeSet.t.
-
+  
   Parameter t : Type.
   Parameter inv : t -> Prop.
 
@@ -27,8 +20,8 @@ Module Type RawGraph (Node : UsualOrderedType) (F : WSetsOn).
     forall x adj g,
       inv g ->
       inv (Node x adj g).
-  
-  Parameter ind :
+
+  Axiom ind :
     forall P : t -> Prop,
       P Empty ->
       (forall (n : node) (adj : node_set) (g : t),
@@ -38,21 +31,21 @@ Module Type RawGraph (Node : UsualOrderedType) (F : WSetsOn).
   Parameter fold :
     forall
       (T : Type)
-      (FEmpty : t -> T)      
-      (FNode : node -> node_set -> T -> T),
+      (FEmpty : T)      
+      (FNode : node -> node_set -> forall (g : t), inv g -> T -> T),
       forall (g : t), inv g -> T.
 
   Parameter fold_ind :
     forall
       (T : Type)
-      (FEmpty : t -> T)
-      (FNode : node -> node_set -> T -> T)
+      (FEmpty : T)
+      (FNode : node -> node_set -> forall (g : t), inv g -> T -> T)
       (R : t -> T -> Prop),
-      R Empty (FEmpty Empty) ->
+      R Empty FEmpty ->
       (forall x adj g (pf : inv g),
           let g' := fold FEmpty FNode pf in
           R g g' -> 
-          R (Node x adj g) (FNode x adj g')) ->
+          R (Node x adj g) (FNode x adj g pf g')) ->
       forall (g : t) (pf : inv g),
         R g (fold FEmpty FNode pf).
 End RawGraph.
@@ -150,16 +143,17 @@ Module InductiveRawGraph : RawGraph Positive_as_OT MSetWeakList.Make.
   
   Fixpoint fold
            (T : Type)
-           (FEmpty : t -> T)
-           (FNode : node -> node_set -> T -> T)
+           (FEmpty : T)
+           (FNode : node -> node_set -> forall (g : t) (pf : inv g), T -> T)
            (g : t)
            (pf : inv g) : T :=
     (match g as g0 return _ = g0 -> _ with
-    | graphs.Empty => fun _ => FEmpty g
+    | graphs.Empty => fun _ => FEmpty
     | graphs.Node x adj g' =>
       fun pf' =>
-        let adj' := @NodeSet.Mkt _ (fold_lem1 pf pf')
-        in FNode x adj' (fold FEmpty FNode (fold_lem2 pf pf'))
+        let adj' := @NodeSet.Mkt _ (fold_lem1 pf pf') in
+        let pf'' := fold_lem2 pf pf' in
+        FNode x adj' g' pf'' (fold FEmpty FNode pf'')
      end) eq_refl.
 
   Axiom proof_irrelevance : forall (P:Prop) (p1 p2:P), p1 = p2.
@@ -167,14 +161,14 @@ Module InductiveRawGraph : RawGraph Positive_as_OT MSetWeakList.Make.
   Lemma fold_ind :
     forall
       (T : Type)
-      (FEmpty : t -> T)
-      (FNode : node -> node_set -> T -> T)
+      (FEmpty : T)
+      (FNode : node -> node_set -> forall (g : t), inv g -> T -> T)
       (R : t -> T -> Prop),
-      R Empty (FEmpty Empty) ->
+      R Empty FEmpty ->
       (forall x adj g (pf : inv g),
           let g' := fold FEmpty FNode pf in
           R g g' -> 
-          R (Node x adj g) (FNode x adj g')) ->
+          R (Node x adj g) (FNode x adj g pf g')) ->
       forall (g : t) (pf : inv g),
         R g (fold FEmpty FNode pf).
   Proof.
@@ -199,6 +193,82 @@ Module InductiveRawGraph : RawGraph Positive_as_OT MSetWeakList.Make.
     auto.
   Qed.
 End InductiveRawGraph.
+    
+Module Type Graph (Node : UsualOrderedType).
+  Notation node := Node.t.
+
+  Parameter t : Type. (* the type of graphs *)
+
+  Parameter empty : t.
+  Parameter add_vertex : t -> node -> t.
+  Parameter add_edge : t -> (node*node) -> t.
+  Parameter remove_vertex : t -> node -> t.
+  Parameter remove_edge : t -> (node*node) -> t.
+
+  Parameter vertices : t -> list node.
+  Parameter edges : t -> list (node*node).
+
+  Parameter is_vertex : t -> node -> bool.
+  Parameter is_edge : t -> (node*node) -> bool.
+
+  (** empty *)
+  Axiom empty_vertices : vertices empty = nil.
+  Axiom empty_edges : edges empty = nil.
+
+  (** add *)
+  Axiom add_vertices :
+    forall (x : node) g,
+      In x (vertices (add_vertex g x)).
+  Axiom add_edges :
+    forall (e : node*node) g,
+      is_vertex g (fst e) = true ->
+      is_vertex g (snd e) = true ->       
+      In e (edges (add_edge g e)).
+  Axiom add_vertices_other :
+    forall (x y : node) g,
+      x <> y -> In y (vertices g) -> In y (vertices (add_vertex g x)).
+  Axiom add_edges_other :
+    forall (e1 e2 : node*node) g,
+      e1 <> e2 -> In e2 (edges g) -> In e2 (edges (add_edge g e1)).
+
+  (** remove *)
+  Axiom remove_vertices :
+    forall (x : node) g,
+      ~In x (vertices (remove_vertex g x)).
+  Axiom remove_edges :
+    forall (e : node*node) g,
+      ~In e (edges (remove_edge g e)).
+  Axiom remove_vertices_other :
+    forall (x y : node) g,
+      x <> y -> In y (vertices g) -> In y (vertices (remove_vertex g x)).
+  Axiom remove_edges_other :
+    forall (e1 e2 : node*node) g,
+      e1 <> e2 -> In e2 (edges g) -> In e2 (edges (remove_edge g e1)).
+
+  (** other properties *)
+  Axiom is_vertex_vertices :
+    forall x g,
+      In x (vertices g) <-> is_vertex g x = true.
+  Axiom is_edge_edges :
+    forall e g,
+      In e (edges g) <-> is_edge g e = true.
+End Graph.
+
+Module RawGraph2Graph
+       (Node : UsualOrderedType)
+       (F : WSetsOn)
+       (R : RawGraph Node F) : Graph Node.
+
+  Notation node := Node.t.
+  Notation node_set := R.NodeSet.t.
   
+  Definition t := {g : R.t & R.inv g}.
+  Definition empty : t := existT R.inv _ R.Empty_inv.
+
+  Definition add_node (x : node) (adj : node_set) (g : t) : t :=
+    @existT _ R.inv (R.Node x adj (projT1 g)) (R.Node_inv x adj (projT2 g)).
+
+  (* TODO...*)
+(*End RawGraph2Graph.*)  
   
   
