@@ -21,7 +21,7 @@ Module Type RawGraph (Node : UsualOrderedType) (F : WSetsOn).
       inv g ->
       inv (Node x adj g).
 
-  Axiom ind :
+  Parameter ind :
     forall P : t -> Prop,
       P Empty ->
       (forall (n : node) (adj : node_set) (g : t),
@@ -205,12 +205,20 @@ Module Type Graph (Node : UsualOrderedType).
   Parameter remove_vertex : t -> node -> t.
   Parameter remove_edge : t -> (node*node) -> t.
 
-  Parameter vertices : t -> list node.
+  Parameter vertices : t -> list node. (*Should we make this Set node?*)
   Parameter edges : t -> list (node*node).
 
   Parameter is_vertex : t -> node -> bool.
   Parameter is_edge : t -> (node*node) -> bool.
 
+  Parameter neighborhood : t -> node -> list node. (*Or maybe Set node?*)
+
+  (*Is graph search part of the interface?*)
+  Parameter path : t -> node -> node -> list node.
+
+  (*Really do want this invariant:
+    -All edges (x,y) have x and y in graph.*)
+  
   (** empty *)
   Axiom empty_vertices : vertices empty = nil.
   Axiom empty_edges : edges empty = nil.
@@ -226,10 +234,10 @@ Module Type Graph (Node : UsualOrderedType).
       In e (edges (add_edge g e)).
   Axiom add_vertices_other :
     forall (x y : node) g,
-      x <> y -> In y (vertices g) -> In y (vertices (add_vertex g x)).
+      x <> y -> In y (vertices g) <-> In y (vertices (add_vertex g x)).
   Axiom add_edges_other :
     forall (e1 e2 : node*node) g,
-      e1 <> e2 -> In e2 (edges g) -> In e2 (edges (add_edge g e1)).
+      e1 <> e2 -> In e2 (edges g) <-> In e2 (edges (add_edge g e1)).
 
   (** remove *)
   Axiom remove_vertices :
@@ -240,10 +248,10 @@ Module Type Graph (Node : UsualOrderedType).
       ~In e (edges (remove_edge g e)).
   Axiom remove_vertices_other :
     forall (x y : node) g,
-      x <> y -> In y (vertices g) -> In y (vertices (remove_vertex g x)).
+      x <> y -> In y (vertices g) <-> In y (vertices (remove_vertex g x)).
   Axiom remove_edges_other :
     forall (e1 e2 : node*node) g,
-      e1 <> e2 -> In e2 (edges g) -> In e2 (edges (remove_edge g e1)).
+      e1 <> e2 -> In e2 (edges g) <-> In e2 (edges (remove_edge g e1)).
 
   (** other properties *)
   Axiom is_vertex_vertices :
@@ -252,6 +260,30 @@ Module Type Graph (Node : UsualOrderedType).
   Axiom is_edge_edges :
     forall e g,
       In e (edges g) <-> is_edge g e = true.
+
+  Axiom neighborhood_prop :
+    forall x y g,
+      In y (neighborhood g x) <-> In (x,y) (edges g).
+
+  Axiom graph_ind1 :
+    forall P : t -> Prop,
+      P empty ->
+      (forall x y g, P g -> P (add_edge (add_vertex (add_vertex g x) y) (x,y))) ->
+      forall g, P g.
+
+  Axiom graph_ind2:
+    forall (P : t -> Prop),
+      P empty ->
+      (forall g g', P g -> length (vertices g') = S (length (vertices g)) -> P g') ->
+      forall g, P g.
+
+  (*Provable from graph_ind2*)
+  Axiom graph_ind3:
+    forall P : t -> Prop,
+      P empty ->
+      (forall n g, length (vertices g) <= n -> P g ->
+                   forall g', length (vertices g') = S n -> P g') ->
+      forall g, P g.
 End Graph.
 
 Module RawGraph2Graph
