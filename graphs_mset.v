@@ -42,6 +42,13 @@ Proof.
 Qed.  
 
 (** Undirected Graphs *)
+Inductive tgraph : Type :=
+|Leaf : tgraph
+|tNode : node -> node_set -> tgraph -> tgraph -> tgraph.
+
+ 
+
+
 Inductive graph : Type :=
 | Empty : graph
 | Node :
@@ -70,6 +77,9 @@ Example ex1 : graph :=
   Node 1 ([2,  3])
        (Node 2 ([3])
              (Node 3 [] Empty)).
+
+Example tree1 : tgraph :=
+  tNode 1 ([2,3]) Leaf (tNode 2 ([1]) Leaf (tNode 3 [] Leaf Leaf)).
 
 Example ex2 : graph :=
   Node 3 ([2,1])
@@ -115,6 +125,14 @@ Fixpoint neighbors_of (x : node) (g : graph) : node_set:=
 
 Definition is_neighbor (x y : node) (g : graph) : bool :=
   nodeset_contains x (neighbors_of y g).
+
+
+Fixpoint tgraph_contains (x : node) (g : tgraph) : bool :=
+  match g with
+  |Leaf =>  false
+  |tNode x' adj lgraph rgraph => if node_eqb x x' then true
+                                else orb (tgraph_contains x lgraph) (tgraph_contains x rgraph)
+  end.
 
 Fixpoint graph_contains (x : node) (g : graph) : bool :=
   match g with
@@ -197,7 +215,6 @@ Proof.
     
     right.
     unfold neighbors_of.
-    
     admit.
   (*   apply (reflect_iff (In y l) (nodelist_contains y l)) in  H2. *)
   (*   rewrite H2. simpl; left; auto. *)
@@ -253,10 +270,10 @@ Qed.
 Lemma ex1_graph_ok : graph_ok ex1.
 Proof.
   unfold ex1; repeat (constructor; auto).
-  (*apply NodeOk; auto.
-  apply NodeOk; auto.
-  apply NodeOk; auto.
-  apply EmptyOk.*)
+  (* apply NodeOk. auto. *)
+  (* apply NodeOk; auto. *)
+  (* apply NodeOk; auto. *)
+  (* apply EmptyOk. *)
 Qed.  
 
 Lemma msetfilter_property :
@@ -292,18 +309,13 @@ Fixpoint remove_node (x : node) (g : graph) : graph :=
     if node_eqb x y then remove_node x g'
     else Node y (remove x adj) (remove_node x g')
   end.
-
+Compute remove 1 [].
 Lemma remove_node_neighbors_of :
   forall x y g,
     x <> y -> 
     neighbors_of y (remove_node x g) = remove x (neighbors_of y g).
 Proof.
   intros x y g H.
-  induction g. simpl. unfold remove.
-  
-  unfold mset.filter.
-  simpl.    
-  destruct (mset.filter (fun z : mset.elt => negb (node_eqb x z))).
 Admitted.  
   
   
@@ -435,6 +447,33 @@ Inductive path (g : graph) : node -> node -> list node -> Prop :=
             path g y z (y::l) ->
             is_Neighbor x y g ->
               path g x z (x::y::l).
+
+Lemma path_ex1 : path ex1 3 1 (3::2::1::nil).
+Proof.
+  apply step.
+  do 2 apply gc_subg.
+  apply gc_inst.
+  apply step.
+  apply gc_subg.
+  apply gc_inst.
+  apply start.
+  apply gc_inst.
+  apply IN_inr.
+  apply mset.mem_spec. (*might want to find out how to do this a different way*)
+  unfold mset.mem.
+  simpl. auto.
+  apply IN_subg.
+  apply IN_inr.
+  apply mset.mem_spec; auto.
+Qed.
+
+Inductive independent_Set : list node -> graph -> Prop :=
+| IS_nil : forall g, independent_Set nil g
+| IS_cons : forall x l g,
+              graph_Contains x g ->
+              independent_Set l g ->
+              (forall y, In y l -> ~ is_Neighbor x y g) ->
+                independent_Set (x :: l) g.
 
 Fixpoint vertices (g : graph) : list node :=
   match g with
