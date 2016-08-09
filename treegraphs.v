@@ -22,7 +22,7 @@ Proof.
   apply Pos.eqb_eq.
 Qed.
 
-Lemma node_eqb_refl :
+Lemma node_eqb_refl : 
   forall x,
     node_eqb x x = true.
 Proof.
