@@ -3,7 +3,7 @@ Set Implicit Arguments.
 Require Import ZArith List Bool.
 Require Import MSets MSetFacts.
 
-Module Type Graph (Node : OrderedType).
+Module Type Graph (Node : UsualOrderedType).
   (* We want a way to talk about edges *)
   Module NodePair := PairOrderedType Node Node.
 
@@ -12,6 +12,8 @@ Module Type Graph (Node : OrderedType).
   Module msetPair := MSetAVL.Make NodePair.
   Module mset_facts := WFacts (mset).
   Module msetPair_facts := WFacts (msetPair).
+  Module mset_prop := WProperties (mset).
+  Module msetPair_prop := WProperties (msetPair).
 
   (* Provide definitions for containers wrt to above modules *)
   Definition node := Node.t.
@@ -200,14 +202,52 @@ Module Type Graph (Node : OrderedType).
   Lemma const_vertices_preservation g :
     mset.Equal (vertices g) (vertices (const_vertices (vertices g))).
   Proof.
-  Admitted.
+    unfold const_vertices.
+    apply mset_prop.fold_rec;
+    intros.
+    {
+      apply mset_prop.empty_is_empty_1 in H.
+      apply (mset_prop.equal_trans H).
+      rewrite empty_vertices.
+      apply mset_prop.equal_refl.
+    }
+    {
+      apply mset_prop.Add_Equal in H1.
+      apply (mset_prop.equal_trans H1).
+      split; case (Node.eq_dec x a0); intros.
+      {
+        subst. apply add_vertices.
+      }
+      {
+        apply add_vertices_other; auto.
+        apply H2; auto.
+        apply mset_prop.Dec.F.add_neq_iff in H3; auto.
+      }
+      {
+        subst. apply mset_prop.Dec.F.add_1; auto.
+      }
+      {
+        apply mset_prop.Dec.F.add_2.
+        apply H2.
+        apply add_vertices_other in H3; auto.
+      }
+    }
+  Qed.
 
   Lemma const_edges_preservation_edges
     v g
     (H0 : forall e, msetPair.In e v -> mset.In (fst e) (vertices g))
     (H1 : forall e, msetPair.In e v -> mset.In (snd e) (vertices g))
-    : msetPair.Equal v (edges (const_edges v g)).
+    : msetPair.Equal (msetPair.union v (edges g)) (edges (const_edges v g)).
   Proof.
+    unfold const_edges.
+    apply msetPair_prop.fold_rec; intros.
+    {
+      apply msetPair_prop.empty_union_1; auto.
+    }
+    {
+      
+    }
   Admitted.
 
   Lemma const_edges_preservation_vertices v g :
@@ -270,3 +310,6 @@ Module Type Graph (Node : OrderedType).
     3. Strong induction wrt. number of vertices.
     ... ?
  *)
+ End GraphInduction.
+
+End Graph.
