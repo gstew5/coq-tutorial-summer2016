@@ -1,11 +1,13 @@
 Set Implicit Arguments.
 
+Require Import pair_UOT.
 Require Import ZArith List Bool.
 Require Import MSets MSetFacts.
 
 Module Type Graph (Node : UsualOrderedType).
+
   (* We want a way to talk about edges *)
-  Module NodePair := PairOrderedType Node Node.
+  Module NodePair := PairUsualOrderedType Node Node.
 
   (* Build necessary modules *)
   Module mset := MSetAVL.Make Node.
@@ -66,6 +68,12 @@ Module Type Graph (Node : UsualOrderedType).
   Axiom add_edges_other :
     forall (e1 e2 : node*node) g,
       e1 <> e2 -> In_nsp e2 (edges g) <-> In_nsp e2 (edges (add_edge g e1)).
+  Axiom add_vertices_pres_edges :
+    forall x g,
+      edges (add_vertex g x) = (edges g).
+  Axiom add_edges_pres_vertices :
+    forall x g,
+      vertices (add_edge g x) = (vertices g).
 
   (** remove *)
   Axiom remove_vertices :
@@ -104,6 +112,10 @@ Module Type Graph (Node : UsualOrderedType).
   Axiom edges_proper_r :
     forall x g,
       In_nsp x (edges g) -> In_ns (snd x) (vertices g).
+
+  (** Above are all of the REQUIRED elements for the module
+      The following consist of definitions and derived facts **)
+
   Lemma edges_proper :
     forall x g,
       In_nsp x (edges g) ->
@@ -115,80 +127,157 @@ Module Type Graph (Node : UsualOrderedType).
     auto.
   Qed.
 
+  (** In this section we define a setoid equality over our sets,
+      establish that add_vertex and add_edge are morphisms
+      and some facts regarding transpositions of add_vertex and
+      add_edge.
 
-  (** Equality **)
-  Definition Equal (g1 g2 : t) :=
-    mset.Equal (vertices g1) (vertices g2) /\
-    msetPair.Equal (edges g1) (edges g2).
-  Definition equal (g1 g2 : t) :=
-    (mset.equal (vertices g1) (vertices g2)) &&
-    (msetPair.equal (edges g1) (edges g2)).
-  Lemma Equal_refl : forall g, Equal g g.
+      To do:
+        Prove the same facts wrt. remove_vertex/remove_edge. **)
+
+    Definition Equal (g1 g2 : t) :=
+      mset.Equal (vertices g1) (vertices g2) /\
+      msetPair.Equal (edges g1) (edges g2).
+    Definition equal (g1 g2 : t) :=
+      (mset.equal (vertices g1) (vertices g2)) &&
+      (msetPair.equal (edges g1) (edges g2)).
+    Lemma Equal_refl : Reflexive Equal.
+    Proof.
+    Admitted.
+    Lemma Equal_symm : Symmetric Equal.
+    Proof.
+    Admitted.
+    Lemma Equal_trans : Transitive Equal.
+    Proof.
+    Admitted.
+    Lemma Equal_equiv : Equivalence Equal.
+    Proof. 
+      split; [exact Equal_refl | exact Equal_symm | exact Equal_trans].
+    Qed.
+
+    Theorem Equal_setoid : Setoid_Theory _ Equal.
+      split; [exact Equal_refl | exact Equal_symm | exact Equal_trans].
+    Qed.
+
+  Lemma gen_Equal_V :
+    forall g g', Equal g g' -> mset.Equal (vertices g) (vertices g').
+  Proof. intros. apply H. Qed.
+
+  Lemma gen_Equal_E :
+    forall g g', Equal g g' -> msetPair.Equal (edges g) (edges g').
+  Proof. intros. apply H. Qed.
+
+    Add Parametric Relation : t Equal
+      reflexivity proved by Equal_refl
+      symmetry proved by Equal_symm
+      transitivity proved by Equal_trans as graph_eq.
+
+    Add Parametric Morphism : add_vertex with
+      signature Equal ==> @eq node ==> Equal as add_vertex_morph.
+    Proof.
+      intros. split.
+      {
+      split; intros;
+      destruct (Node.eq_dec a y0); subst.
+      apply add_vertices.
+      apply add_vertices_other; try congruence.
+      apply add_vertices_other in H0; try congruence.
+      apply H; auto.
+      apply add_vertices.
+      apply add_vertices_other; try congruence.
+      apply add_vertices_other in H0; try congruence.
+      apply H; auto.
+      }
+      {
+        transitivity (edges x);
+        rewrite add_vertices_pres_edges;
+        [|apply H]; reflexivity.
+      }
+    Qed.
+
+    Add Parametric Morphism : add_edge with
+      signature Equal ==> @eq nodePair ==> Equal as add_edge_morph.
+    Proof.
+    intros. split.
+    {
+      transitivity (vertices x);
+      rewrite add_edges_pres_vertices;
+      [|apply H]; reflexivity.
+    }
+    {
+      split; intros;
+      destruct (NodePair.eq_dec a y0); subst;
+      try solve
+        [ apply edges_proper in H0;
+          rewrite add_edges_pres_vertices in H0;
+          destruct H0;apply add_edges; apply H; auto
+        | apply add_edges_other; try congruence;
+          apply add_edges_other in H0; try congruence;
+          apply H; auto].
+    }
+    Qed.
+
+  Lemma add_edges_transpose :
+    forall x y g, Equal (add_edge (add_edge g y) x) (add_edge (add_edge g x) y).
   Proof.
-  Admitted.
-  Lemma Equal_symm :
-    forall g1 g2, Equal g1 g2 -> Equal g2 g1.
+    intros. split.
+    {
+      repeat rewrite add_edges_pres_vertices. reflexivity.
+    }
+    {
+      split; intros;
+      destruct (NodePair.eq_dec a x);
+      destruct (NodePair.eq_dec a y); repeat subst; auto.
+      apply edges_proper in H; repeat rewrite add_edges_pres_vertices in H.
+      destruct H.
+      {
+        apply add_edges_other; try congruence; apply add_edges; auto.
+      }
+      {
+        apply add_edges; apply edges_proper in H;
+        repeat rewrite add_edges_pres_vertices in *;
+        destruct H; auto.
+      }
+      {
+        repeat apply add_edges_other; try congruence;
+        repeat (apply add_edges_other in H; try congruence).
+      }
+      {
+        apply add_edges; apply edges_proper in H;
+        repeat rewrite add_edges_pres_vertices in *;
+        destruct H; auto.
+      }
+      {
+        apply add_edges_other; try congruence; apply add_edges;
+        apply edges_proper in H;
+        repeat rewrite add_edges_pres_vertices in H;  destruct H; auto.
+      }
+      {
+        repeat apply add_edges_other; try congruence;
+        repeat (apply add_edges_other in H; try congruence).
+      }
+    }
+  Qed.
+
+  Lemma add_vertices_transpose :
+    forall x y g, Equal (add_vertex (add_vertex g y) x)
+                        (add_vertex (add_vertex g x) y).
   Proof.
-  Admitted.
-  Lemma Equal_trans :
-    forall g1 g2 g3, Equal g1 g2 -> Equal g2 g3 -> Equal g1 g3.
-  Proof.
-  Admitted.
+    intros. split.
+    {
+      split; intros;
+      destruct (Node.eq_dec a x);
+      destruct (Node.eq_dec a y); repeat subst; auto;
+      try solve
+        [ apply add_vertices_other; try congruence;
+          apply add_vertices
+        | apply add_vertices
+        | repeat (apply add_vertices_other in H; try congruence);
+          repeat (apply add_vertices_other; try congruence)].
+    }
+    repeat rewrite add_vertices_pres_edges. reflexivity.
+  Qed.
 
-  (** Subgraphs **)
-  Definition Subgraph (g1 g2 : t) :=
-    mset.Subset (vertices g1) (vertices g2) /\
-    msetPair.Subset (edges g1) (edges g2).
-
-  Section GraphInduction.
-(** We don't know how these graphs are implemented underneath
-    the module, and this can make induction principles too
-    restricitive. One way to work around this would be
-    to require the user to provide their own induction
-    principles as axioms to the interface. But, this
-    can be burdensome, and may require the introduction
-    of axioms like Proof Irrelevance to work around
-    (ex. Sam's implementation of graphs for MIS
-    and Gordon's instance for list sets).
-
-    But, many of our propositions regarding graphs don't
-    care about their underlying construction. Instead,
-    we only care about relations between the set of edges
-    and the set of vertices. In many (all?) cases, these
-    relations should be preserved under the Equal relation
-    described above. In this section, we capitalize on this
-    fact to construct an induction principle for
-    functions/properties which are preserved under this
-    Equality relation, tenatively deemed 'respectful'.
-
-    This has a number of benefits:
-      1.) Decreased burden of proof for the interface user.
-            The user no longer has to generate their own induction
-            principles.
-      2.) Avoidance of additional axioms such as proof
-            irrelevance.
-      3.) Technique should be easily extendable to
-            other (setoid?) types.
-
-    The general process for the derivation of the first induction
-    principle (ind1) looks like this:
-      
-      1.) Given an arbitrary graph, rebuild it up to
-            Equality using 'rebuild_graph'
-      2.) This rebuilt graph is made using the
-            only empty, add_vertices and add_edges
-            and is thus a memeber of constructed_t.
-      3.) We can use the induction/recursion principle of
-            constructed_t to destruct the rebuilt graph
-            into cases in which the induction hypotheses
-            are applicable.
-      4.) Since the operation is respectful, we can use this
-            output for the rebuilt graph to produce a
-            an output for the input graph.
-  *)
-
-  (** Functions for a 'cannonical' construction
-        of equivalent graphs **)
   Definition const_vertices (v : node_set) : t :=
     mset.fold (fun elt subg => add_vertex subg elt) v empty.
 
@@ -234,35 +323,187 @@ Module Type Graph (Node : UsualOrderedType).
     }
   Qed.
 
+  Lemma const_vertices_empty_edges g :
+    msetPair.Equal (edges (const_vertices (vertices g))) (msetPair.empty).
+  Proof.
+    unfold const_vertices.
+    apply mset_prop.fold_rec.
+    {
+      intros. rewrite empty_edges.
+      apply msetPair_prop.equal_refl.
+    }
+    {
+      intros.
+      rewrite add_vertices_pres_edges.
+      auto.
+    }
+  Qed.
+
+  Lemma const_edges_empty_vertices :
+    forall v g, mset.Equal (vertices (const_edges v g)) (vertices g).
+  Proof.
+    intros.
+    unfold rebuild_graph, const_edges.
+    apply msetPair_prop.fold_rec.
+    {
+      intros. reflexivity.
+    }
+    {
+      intros. rewrite add_edges_pres_vertices; auto.
+    }
+  Qed.
+
+  Lemma const_edges_eq :
+    forall v v' g, msetPair.Equal v v' ->
+      Equal (const_edges v g) (const_edges v' g).
+  Proof.
+    intros v.
+    induction v using msetPair_prop.set_induction; intros.
+    {
+    split.
+      { 
+        transitivity (vertices g); [|symmetry];
+        apply const_edges_empty_vertices.
+      }
+      {
+        unfold const_edges.
+        rewrite msetPair_prop.fold_1b; auto.
+        rewrite msetPair_prop.fold_1b. reflexivity.
+        apply msetPair_prop.empty_is_empty_2.
+        transitivity v. symmetry; auto.
+        apply msetPair_prop.empty_is_empty_1 in H; auto.
+      }
+    }
+    {
+      unfold const_edges.
+      apply msetPair_prop.fold_equal.
+      {
+        apply Equal_equiv.
+      }
+      {
+        constructor; subst.
+        transitivity (vertices x1).
+        rewrite add_edges_pres_vertices; reflexivity.
+        transitivity (vertices y0). apply H3.
+        rewrite add_edges_pres_vertices; reflexivity.
+        apply gen_Equal_E.
+        apply add_edge_morph; auto.
+      }
+      {
+        unfold transpose; intros.
+        apply add_edges_transpose.
+      }
+      exact H1.
+    }
+  Qed.
+
+  Lemma const_edges_step' : forall v x g,
+    msetPair.In x v ->
+      Equal (add_edge (const_edges v g) x) (const_edges v g).
+  Proof.
+    intros v.
+    induction v using msetPair_prop.set_induction;
+    intros. apply H in H0; inversion H0.
+    apply msetPair_prop.Add_Equal in H0.
+    transitivity (const_edges (msetPair.add x v1) g).
+  Admitted.
+
+  Lemma const_edges_step x v g:
+    Equal (add_edge (const_edges v g) x) (const_edges (msetPair.add x v) g).
+  Proof.
+    unfold const_edges at 2.
+    destruct (msetPair_prop.In_dec x v) as [H1 | H1];
+    [rewrite msetPair_prop.add_fold with (eqA := Equal)
+    |rewrite msetPair_prop.fold_add with (eqA := Equal)];
+    try solve
+      [ apply Equal_equiv
+      | unfold Proper, respectful; intros;
+        apply add_edge_morph; auto; simpl
+      | unfold transpose; intros; apply add_edges_transpose; simpl
+      | auto].
+    apply const_edges_step'; auto.
+  Qed.
+ 
   Lemma const_edges_preservation_edges
     v g
     (H0 : forall e, msetPair.In e v -> mset.In (fst e) (vertices g))
     (H1 : forall e, msetPair.In e v -> mset.In (snd e) (vertices g))
     : msetPair.Equal (msetPair.union v (edges g)) (edges (const_edges v g)).
   Proof.
-    unfold const_edges.
-    apply msetPair_prop.fold_rec; intros.
+    induction v using msetPair_prop.set_induction.
     {
-      apply msetPair_prop.empty_union_1; auto.
+      rewrite msetPair_prop.empty_union_1; auto.
+      unfold const_edges.
+      rewrite msetPair_prop.fold_1b; auto.
+      reflexivity.
     }
     {
-      
+      apply msetPair_prop.Add_Equal in H2.
+      generalize H2; intros H3.
+      apply msetPair_prop.union_equal_1 with (s'' := (edges g)) in H3.
+      transitivity (msetPair.union (msetPair.add x v1) (edges g)); auto.
+      transitivity (edges (const_edges (msetPair.add x v1) g));
+      [| apply const_edges_eq; symmetry; auto].
+      admit.
     }
   Admitted.
-
-  Lemma const_edges_preservation_vertices v g :
-    mset.Equal (vertices g) (vertices (const_edges v g)).
-  Proof.
-  Admitted.     
 
   Lemma rebuild_graph_spec :
-    forall t, Equal (rebuild_graph t) t.
+    forall g, Equal (rebuild_graph g) g.
   Proof.
-    intros t.
-    constructor;
-    unfold rebuild_graph.
-  Admitted.
+  (*
+    generalize rebuild_graph_spec'.
+    intros. constructor; auto.
+    specialize (H g).
+    induction (edges g) using msetPair_prop.set_induction.
+   {
+      unfold rebuild_graph, const_edges.
+      rewrite msetPair_prop.fold_1b.
+      admit.
+      apply msetPair_prop.empty_is_empty_1 in H0.
+      unfold rebuild_graph, const_edges.
+      
+      apply msetPair_prop.fold_equal with
+        (eqA := Equal)
+        (f :=  (fun (elt : msetPair.elt) (subg : t) => add_edge subg elt))
+        (i := (const_vertices (vertices g))) in H0.
+      destruct H0 as [H0  H1].
+      apply (msetPair_prop.equal_trans H1).
+      rewrite msetPair_prop.fold_equal with (s' := msetPair.empty).
+      admit.
+      constructor; auto; unfold Transitive; intros; subst; auto.
+      unfold Proper, respectful; intros; subst; auto.
+      unfold transpose; intros.
+      apply 
+eq_equiv.
+      SearchAbout Equivalence.
+      SearchAbout eq.
+      auto.
+      Check msetPair_prop.fold_equal.
 
+
+      apply (msetPair_prop.fold_equal _ (Logic.eq _) .
+      symmetry; auto.
+    }
+    {
+      intros. apply msetPair_prop.Add_Equal in H2.
+      transitivity (msetPair.add x s').
+      split; intros.
+      {
+        apply msetPair.add_spec.
+        destruct (NodePair.eq_dec a0 x); auto.
+        right. apply H2.
+        apply add_edges_other in H3; auto.
+      }
+      {
+        apply msetPair.add_spec in H3.
+        destruct H3 as [H3 | H3].
+        subst.
+        apply add_edges.
+        apply add_edge.
+      }
+  *)
+  Admitted.
   (** An inductive construction for graphs
         wrt. functions avilable to the interface **)
   Inductive constructed_t : t -> Type :=
@@ -301,15 +542,49 @@ Module Type Graph (Node : UsualOrderedType).
       by apply rebuild_is_constructed.
     induction H3; auto.
   Qed.
+  (** We don't know how these graphs are implemented underneath
+      the module, and this can make induction principles too
+      restricitive. One way to work around this would be
+      to require the user to provide their own induction
+      principles as axioms to the interface. But, this
+      can be burdensome, and may require the introduction
+      of axioms like Proof Irrelevance to work around
+      (ex. Sam's implementation of graphs for MIS
+      and Gordon's instance for list sets).
 
-  (** Additional Induction Lemmas **)
-  (* 
-    1. Induction over subgraphs
-      - show that some subgraph is built using constructed_t.
-    2. Induction over number of vertices.
-    3. Strong induction wrt. number of vertices.
-    ... ?
- *)
- End GraphInduction.
+      But, many of our propositions regarding graphs don't
+      care about their underlying construction. Instead,
+      we only care about relations between the set of edges
+      and the set of vertices. In many (all?) cases, these
+      relations should be preserved under the Equal relation
+      described above. In this section, we capitalize on this
+      fact to construct an induction principle for
+      functions/properties which are preserved under this
+      Equality relation, tenatively deemed 'respectful'.
+
+      This has a number of benefits:
+        1.) Decreased burden of proof for the interface user.
+              The user no longer has to generate their own induction
+              principles.
+        2.) Avoidance of additional axioms such as proof
+              irrelevance.
+        3.) Technique should be easily extendable.
+
+      The general process for the derivation of the first induction
+      principle (ind1) looks like this:
+        
+        1.) Given an arbitrary graph, rebuild it up to
+              Equality using 'rebuild_graph'
+        2.) This rebuilt graph is made using the
+              only empty, add_vertices and add_edges
+              and is thus a memeber of constructed_t.
+        3.) We can use the induction/recursion principle of
+              constructed_t to destruct the rebuilt graph
+              into cases in which the induction hypotheses
+              are applicable.
+        4.) Since the operation is respectful, we can use this
+              output for the rebuilt graph to produce a
+              an output for the input graph.
+    *)
 
 End Graph.
