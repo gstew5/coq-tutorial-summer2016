@@ -143,19 +143,19 @@ Module Type Graph (Node : UsualOrderedType).
       (msetPair.equal (edges g1) (edges g2)).
     Lemma Equal_refl : Reflexive Equal.
     Proof.
-    Admitted.
+      split; reflexivity.
+    Qed.
     Lemma Equal_symm : Symmetric Equal.
     Proof.
-    Admitted.
+      split; symmetry; apply H.
+    Qed.
     Lemma Equal_trans : Transitive Equal.
     Proof.
-    Admitted.
+      split; [transitivity (vertices y)| transitivity (edges y)];
+      try solve [apply H | apply H0].
+    Qed.
     Lemma Equal_equiv : Equivalence Equal.
     Proof. 
-      split; [exact Equal_refl | exact Equal_symm | exact Equal_trans].
-    Qed.
-
-    Theorem Equal_setoid : Setoid_Theory _ Equal.
       split; [exact Equal_refl | exact Equal_symm | exact Equal_trans].
     Qed.
 
@@ -216,6 +216,33 @@ Module Type Graph (Node : UsualOrderedType).
           apply H; auto].
     }
     Qed.
+
+  (* Spend some time trying to cast as a morphism? *)
+  Lemma add_edges_set_eq g e s :
+    msetPair.Equal (edges g) s ->
+    mset.In (fst e) (vertices g) ->
+    mset.In (snd e) (vertices g) ->
+      msetPair.Equal (edges (add_edge g e)) (msetPair.add e s).
+  Proof.
+    split; intros;
+    destruct (NodePair.eq_dec a e); subst.
+    {
+      apply msetPair_facts.add_iff. left; auto.
+    }
+    {
+      apply add_edges_other in H2.
+      apply msetPair_facts.add_iff. right.
+      apply H ; auto. congruence.
+    }
+    {
+      apply add_edges; auto.
+    }
+    {
+      apply add_edges_other; auto. apply H.
+      apply msetPair_facts.add_iff in H2.
+      destruct H2. congruence. auto.
+    }
+  Qed.
 
   Lemma add_edges_transpose :
     forall x y g, Equal (add_edge (add_edge g y) x) (add_edge (add_edge g x) y).
@@ -339,20 +366,31 @@ Module Type Graph (Node : UsualOrderedType).
     }
   Qed.
 
-  Lemma const_edges_empty_vertices :
-    forall v g, mset.Equal (vertices (const_edges v g)) (vertices g).
+  Lemma const_edges_empty_vertices' :
+    forall v g g', Equal g' g ->
+      mset.Equal (vertices (const_edges v g')) (vertices g).
   Proof.
     intros.
     unfold rebuild_graph, const_edges.
     apply msetPair_prop.fold_rec.
     {
-      intros. reflexivity.
+      intros. apply H.
     }
     {
       intros. rewrite add_edges_pres_vertices; auto.
     }
   Qed.
 
+  (* While more specific than the above, this lemma is easy to
+      use for rewriting the majority of the cases we care about *) 
+  Lemma const_edges_empty_vertices :
+    forall v g, mset.Equal (vertices (const_edges v g)) (vertices g).
+  Proof.
+    intros.
+    apply const_edges_empty_vertices'.
+    reflexivity.
+  Qed.
+  
   Lemma const_edges_eq :
     forall v v' g, msetPair.Equal v v' ->
       Equal (const_edges v g) (const_edges v' g).
@@ -397,115 +435,87 @@ Module Type Graph (Node : UsualOrderedType).
     }
   Qed.
 
-  Lemma const_edges_step' : forall v x g,
-    msetPair.In x v ->
-      Equal (add_edge (const_edges v g) x) (const_edges v g).
-  Proof.
-    intros v.
-    induction v using msetPair_prop.set_induction;
-    intros. apply H in H0; inversion H0.
-    apply msetPair_prop.Add_Equal in H0.
-    transitivity (const_edges (msetPair.add x v1) g).
-  Admitted.
-
-  Lemma const_edges_step x v g:
-    Equal (add_edge (const_edges v g) x) (const_edges (msetPair.add x v) g).
-  Proof.
-    unfold const_edges at 2.
-    destruct (msetPair_prop.In_dec x v) as [H1 | H1];
-    [rewrite msetPair_prop.add_fold with (eqA := Equal)
-    |rewrite msetPair_prop.fold_add with (eqA := Equal)];
-    try solve
-      [ apply Equal_equiv
-      | unfold Proper, respectful; intros;
-        apply add_edge_morph; auto; simpl
-      | unfold transpose; intros; apply add_edges_transpose; simpl
-      | auto].
-    apply const_edges_step'; auto.
-  Qed.
- 
-  Lemma const_edges_preservation_edges
-    v g
+  Lemma const_edges_preservation_edges : 
+    forall v g
     (H0 : forall e, msetPair.In e v -> mset.In (fst e) (vertices g))
     (H1 : forall e, msetPair.In e v -> mset.In (snd e) (vertices g))
-    : msetPair.Equal (msetPair.union v (edges g)) (edges (const_edges v g)).
+    (H2 : mset.Equal (vertices (const_edges v g)) (vertices g)),
+      msetPair.Equal (msetPair.union v (edges g)) (edges (const_edges v g)).
   Proof.
-    induction v using msetPair_prop.set_induction.
+    unfold const_edges. intros v g.
+    apply msetPair_prop.fold_rec_bis; intros.
+    {
+      rewrite <- H.
+      apply H0; intros; auto; [apply H1 | apply H2];
+      rewrite <- H; auto.
+    }
     {
       rewrite msetPair_prop.empty_union_1; auto.
-      unfold const_edges.
-      rewrite msetPair_prop.fold_1b; auto.
       reflexivity.
     }
     {
-      apply msetPair_prop.Add_Equal in H2.
-      generalize H2; intros H3.
-      apply msetPair_prop.union_equal_1 with (s'' := (edges g)) in H3.
-      transitivity (msetPair.union (msetPair.add x v1) (edges g)); auto.
-      transitivity (edges (const_edges (msetPair.add x v1) g));
-      [| apply const_edges_eq; symmetry; auto].
-      admit.
+      assert (msetPair.Equal (msetPair.union s' (edges g)) (edges a)) as H5.
+      {
+        apply H1; intros; [apply H2 | apply H3 |].
+        apply msetPair_facts.add_iff. right; auto.
+        apply msetPair_facts.add_iff. right; auto.
+        rewrite add_edges_pres_vertices in H4; auto.
+      }
+      clear H1.
+      rewrite msetPair_prop.union_add.
+      assert (In_ns (fst x) (vertices a)) as H6.
+      {
+        rewrite add_edges_pres_vertices in H4.
+        apply H4. apply H2. apply msetPair_facts.add_iff.
+        left. auto.
+      }
+      assert (In_ns (snd x) (vertices a)) as H7.
+      {
+        rewrite add_edges_pres_vertices in H4.
+        apply H4. apply H3. apply msetPair_facts.add_iff.
+        left. auto.
+      }
+      {
+        symmetry. apply add_edges_set_eq; auto.
+        symmetry; auto.
+      }
     }
-  Admitted.
+  Qed.
 
   Lemma rebuild_graph_spec :
     forall g, Equal (rebuild_graph g) g.
   Proof.
-  (*
-    generalize rebuild_graph_spec'.
-    intros. constructor; auto.
-    specialize (H g).
-    induction (edges g) using msetPair_prop.set_induction.
-   {
-      unfold rebuild_graph, const_edges.
-      rewrite msetPair_prop.fold_1b.
-      admit.
-      apply msetPair_prop.empty_is_empty_1 in H0.
-      unfold rebuild_graph, const_edges.
-      
-      apply msetPair_prop.fold_equal with
-        (eqA := Equal)
-        (f :=  (fun (elt : msetPair.elt) (subg : t) => add_edge subg elt))
-        (i := (const_vertices (vertices g))) in H0.
-      destruct H0 as [H0  H1].
-      apply (msetPair_prop.equal_trans H1).
-      rewrite msetPair_prop.fold_equal with (s' := msetPair.empty).
-      admit.
-      constructor; auto; unfold Transitive; intros; subst; auto.
-      unfold Proper, respectful; intros; subst; auto.
-      unfold transpose; intros.
-      apply 
-eq_equiv.
-      SearchAbout Equivalence.
-      SearchAbout eq.
-      auto.
-      Check msetPair_prop.fold_equal.
-
-
-      apply (msetPair_prop.fold_equal _ (Logic.eq _) .
-      symmetry; auto.
+    intros g.
+    unfold rebuild_graph.
+    split.
+    {
+      rewrite const_edges_empty_vertices.
+      rewrite <- const_vertices_preservation.
+      reflexivity.
     }
     {
-      intros. apply msetPair_prop.Add_Equal in H2.
-      transitivity (msetPair.add x s').
-      split; intros.
+      symmetry. rewrite <- const_edges_preservation_edges.
       {
-        apply msetPair.add_spec.
-        destruct (NodePair.eq_dec a0 x); auto.
-        right. apply H2.
-        apply add_edges_other in H3; auto.
+        rewrite const_vertices_empty_edges.
+        rewrite msetPair_prop.empty_union_2.
+        reflexivity.
+        apply msetPair_prop.empty_is_empty_2.
+        reflexivity.
       }
       {
-        apply msetPair.add_spec in H3.
-        destruct H3 as [H3 | H3].
-        subst.
-        apply add_edges.
-        apply add_edge.
+        intros. rewrite <- const_vertices_preservation.
+        apply edges_proper in H. destruct H; auto.
       }
-  *)
-  Admitted.
-  (** An inductive construction for graphs
-        wrt. functions avilable to the interface **)
+      {
+        intros. rewrite <- const_vertices_preservation.
+        apply edges_proper in H. destruct H; auto.
+      }
+      {
+        apply const_edges_empty_vertices.
+      }
+    }
+  Qed.
+
   Inductive constructed_t : t -> Type :=
   | const_empty : constructed_t empty
   | const_vert : forall g x,
@@ -519,8 +529,14 @@ eq_equiv.
   Proof.
     intros g.
     unfold rebuild_graph.
-    (* Use set_induction from MSetProperties? *)
-  Admitted.
+    unfold const_edges.
+    apply msetPair_prop.fold_rec; intros.
+    unfold const_vertices;
+    apply mset_prop.fold_rec; intros.
+    constructor.
+    constructor; auto.
+    constructor; auto.
+  Qed.
   
   (** The definition of respectful operations **)
   Definition respectful (P : t -> Type) :=
