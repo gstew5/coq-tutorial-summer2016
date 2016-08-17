@@ -167,14 +167,14 @@ Module Type Graph (Node : UsualOrderedType).
     forall g g', Equal g g' -> msetPair.Equal (edges g) (edges g').
   Proof. intros. apply H. Qed.
 
-    Add Parametric Relation : t Equal
-      reflexivity proved by Equal_refl
-      symmetry proved by Equal_symm
-      transitivity proved by Equal_trans as graph_eq.
+  Add Parametric Relation : t Equal
+    reflexivity proved by Equal_refl
+    symmetry proved by Equal_symm
+    transitivity proved by Equal_trans as graph_eq.
 
-    Add Parametric Morphism : add_vertex with
-      signature Equal ==> @eq node ==> Equal as add_vertex_morph.
-    Proof.
+  Add Parametric Morphism : add_vertex with
+    signature Equal ==> @eq node ==> Equal as add_vertex_morph.
+  Proof.
       intros. split.
       {
       split; intros;
@@ -357,7 +357,7 @@ Module Type Graph (Node : UsualOrderedType).
     apply mset_prop.fold_rec.
     {
       intros. rewrite empty_edges.
-      apply msetPair_prop.equal_refl.
+      reflexivity.
     }
     {
       intros.
@@ -418,7 +418,7 @@ Module Type Graph (Node : UsualOrderedType).
       {
         apply Equal_equiv.
       }
-      {
+      { 
         constructor; subst.
         transitivity (vertices x1).
         rewrite add_edges_pres_vertices; reflexivity.
@@ -603,4 +603,107 @@ Module Type Graph (Node : UsualOrderedType).
               an output for the input graph.
     *)
 
+  (** Definition for subgraphs and a related induction principle **)
+  Definition Subgraph g1 g2 : Prop :=
+    mset.Subset (vertices g1) (vertices g2) /\
+    msetPair.Subset (edges g1) (edges g2).
+
+  Inductive ProperSubgraph g1 g2 : Prop :=
+  | lt_vert :
+      Subgraph g1 g2 ->
+      ~ mset.Equal (vertices g1) (vertices g2) ->
+        ProperSubgraph g1 g2
+  |  lt_edges :
+      Subgraph g1 g2 ->
+      ~ msetPair.Equal (edges g1) (edges g2) ->
+        ProperSubgraph g1 g2.
+
+  Lemma add_vertex_subgraph :
+    forall x g, Subgraph g (add_vertex g x).
+  Proof.
+    intros. split.
+    {
+      unfold mset.Subset; intros.
+      destruct (Node.eq_dec x a); subst.
+      apply add_vertices; auto.
+      apply add_vertices_other. congruence.
+      auto.
+    }
+    {
+      unfold msetPair.Subset; intros.
+      rewrite add_vertices_pres_edges.
+      auto.
+    }
+  Qed.
+  
+  Lemma add_edge_subgraph :
+    forall x g, Subgraph g (add_edge g x).
+  Proof.
+    intros. split.
+    {
+      rewrite add_edges_pres_vertices.
+      reflexivity.
+    }
+    {
+      unfold msetPair.Subset; intros.
+      destruct (NodePair.eq_dec x a); subst.
+      apply edges_proper in H. destruct H.
+      apply add_edges; auto.
+      apply add_edges_other. congruence.
+      auto.
+    }
+  Qed.
+
+  Lemma subgraph_cond :
+    forall g1 g2, Subgraph g1 g2 ->
+      {Equal g1 g2} + {ProperSubgraph g1 g2}.
+  Proof.
+    intros. destruct H as [H0 H1];
+    case_eq (mset.subset (vertices g2) (vertices g1));
+    case_eq (msetPair.subset (edges g2) (edges g1));
+    [ left | right | right | right].
+    {
+      apply mset.subset_spec in H2.
+      apply msetPair.subset_spec in H.
+      split; 
+      [ apply mset_prop.double_inclusion
+      | apply msetPair_prop.double_inclusion];
+      split; auto.
+    }
+    {
+      right. split; auto.
+      intros H3.
+      apply msetPair_prop.double_inclusion in H3.
+      destruct H3. apply msetPair.subset_spec in H4.
+      congruence.
+    }
+    {
+      left. split; auto.
+      intros H3.
+      apply mset_prop.double_inclusion in H3.
+      destruct H3. apply mset.subset_spec in H4.
+      congruence.
+    }  
+    {
+      left. split; auto.
+      intros H3.
+      apply mset_prop.double_inclusion in H3.
+      destruct H3. apply mset.subset_spec in H4.
+      congruence.
+    }  
+  Qed.
+
+  Lemma ind2 (P : t -> Type) (H0 : respectful P) :
+    P empty ->
+    (forall g1 g2, ProperSubgraph g1 g2 -> P g1 -> P g2) ->
+    forall g, P g.
+  Proof.
+    intros.
+    apply ind1; auto; intros;
+    [ generalize (add_vertex_subgraph x g0)
+    | generalize (add_edge_subgraph x g0)]; intros;
+    apply subgraph_cond in H; destruct H;
+    try solve [apply H0 in e; auto
+              | apply X0 in p; auto].
+  Qed.
 End Graph.
