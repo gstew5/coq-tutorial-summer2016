@@ -3,8 +3,12 @@ Set Implicit Arguments.
 Require Import pair_UOT.
 Require Import ZArith List Bool.
 Require Import MSets MSetFacts.
+(** Split Graph into two modules a functor : Graphs -> graph_properties
+    and Graphs.
 
-Module Type Graph (Node : UsualOrderedType).
+    Graph became Graphs due to a confliction with the print command:
+     `Print Graph.` **)
+Module Type Graphs (Node : UsualOrderedType).
 
   (* We want a way to talk about edges *)
   Module NodePair := PairUsualOrderedType Node Node.
@@ -115,11 +119,16 @@ Module Type Graph (Node : UsualOrderedType).
 
   (** Above are all of the REQUIRED elements for the module
       The following consist of definitions and derived facts **)
+End Graphs.
+
+(*Given a graph construct a module with derivable properties, maybe this could be done better*)
+Module graph_properties (Node : UsualOrderedType) (G : Graphs Node).
+  Import G.
 
   Lemma edges_proper :
     forall x g,
       In_nsp x (edges g) ->
-        In_ns (fst x) (vertices g) /\ In_ns (snd x) (vertices g).
+       In_ns (fst x) (vertices g) /\ In_ns (snd x) (vertices g).
   Proof.
     intros.
     split;
@@ -603,6 +612,7 @@ Module Type Graph (Node : UsualOrderedType).
               an output for the input graph.
     *)
 
+
   (** Definition for subgraphs and a related induction principle **)
   Definition Subgraph g1 g2 : Prop :=
     mset.Subset (vertices g1) (vertices g2) /\
@@ -706,4 +716,10 @@ Module Type Graph (Node : UsualOrderedType).
     try solve [apply H0 in e; auto
               | apply X0 in p; auto].
   Qed.
-End Graph.
+  
+  
+  
+
+
+End graph_properties.
+
