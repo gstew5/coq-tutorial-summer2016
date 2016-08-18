@@ -74,10 +74,10 @@ Module Type Graphs (Node : UsualOrderedType).
       e1 <> e2 -> In_nsp e2 (edges g) <-> In_nsp e2 (edges (add_edge g e1)).
   Axiom add_vertices_pres_edges :
     forall x g,
-      edges (add_vertex g x) = (edges g).
+      msetPair.Equal (edges (add_vertex g x)) (edges g).
   Axiom add_edges_pres_vertices :
     forall x g,
-      vertices (add_edge g x) = (vertices g).
+      mset.Equal (vertices (add_edge g x)) (vertices g).
 
   (** remove *)
   Axiom remove_vertices :
@@ -716,10 +716,6 @@ Module graph_properties (Node : UsualOrderedType) (G : Graphs Node).
     try solve [apply H0 in e; auto
               | apply X0 in p; auto].
   Qed.
-  
-  
-  
-
 
 End graph_properties.
 
