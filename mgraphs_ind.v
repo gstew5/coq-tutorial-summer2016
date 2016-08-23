@@ -16,10 +16,9 @@ Module Type Graphs (Node : UsualOrderedType).
   (* Build necessary modules *)
   Module mset := MSetAVL.Make Node.
   Module msetPair := MSetAVL.Make NodePair.
-  Module mset_facts := WFacts (mset).
-  Module msetPair_facts := WFacts (msetPair).
-  Module mset_prop := WProperties (mset).
-  Module msetPair_prop := WProperties (msetPair).
+
+  
+
 
   (* Provide definitions for containers wrt to above modules *)
   Definition node := Node.t.
@@ -124,8 +123,12 @@ End Graphs.
 (*Given a graph construct a module with derivable properties, maybe this could be done better*)
 Module graph_properties (Node : UsualOrderedType) (G : Graphs Node).
   Import G.
+  Module mset_facts := WFacts (mset).
+  Module msetPair_facts := WFacts (msetPair).
+  Module mset_prop := WProperties (mset).
+  Module msetPair_prop := WProperties (msetPair).
 
-  Lemma edges_proper :
+   Lemma edges_proper :
     forall x g,
       In_nsp x (edges g) ->
        In_ns (fst x) (vertices g) /\ In_ns (snd x) (vertices g).
@@ -716,6 +719,16 @@ Module graph_properties (Node : UsualOrderedType) (G : Graphs Node).
     try solve [apply H0 in e; auto
               | apply X0 in p; auto].
   Qed.
+
+  Lemma ind3 (P : t -> Type) (H0 : respectful P) :
+    P empty -> 
+    (forall g1 g2, (S ( mset.cardinal (vertices g1)) = mset.cardinal (vertices g2)  -> P g1 -> P g2)) ->
+     forall g, P g.
+  Proof.
+    intros.
+    
+
+
 
 End graph_properties.
 
