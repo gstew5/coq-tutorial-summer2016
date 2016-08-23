@@ -2,12 +2,6 @@ Set Implicit Arguments.
 Require Import ZArith MSets.
 Require Import mgraphs_ind pair_UOT.
 
-
-
-
-
-
-
 Module Bleh : Graphs PositiveOrderedTypeBits.
   
   
@@ -16,7 +10,10 @@ Module Bleh : Graphs PositiveOrderedTypeBits.
                         PositiveOrderedTypeBits PositiveOrderedTypeBits).
   Module msetPair := MSetAVL.Make (NodePair).
 
-
+  Module mset_facts := WFacts (mset).
+  Module msetPair_facts := WFacts (msetPair).
+  Module mset_prop := WProperties (mset).
+  Module msetPair_prop := WProperties (msetPair).
 
   Definition node := positive.
   Definition nodePair := NodePair.t.
@@ -51,10 +48,6 @@ Module Bleh : Graphs PositiveOrderedTypeBits.
                         s (edges g')
     end.
 
-
-
-  
-
   Definition t := graph.
   Definition empty := Empty.
   Definition add_vertex : t -> node -> t :=
@@ -69,17 +62,15 @@ Module Bleh : Graphs PositiveOrderedTypeBits.
   match g with
   |Empty => Empty
   |Node n' adj g' => if Pos.eqb n' n then remove_vertex g' n
-       else  Node n' (mset.remove n adj) (remove_vertex g' n)
+      else  Node n' adj g' (* this works because of the way edges are added.*)
   end.
 
-(*It is possible to make a graph with edges form a-b and b-a but since it is undirected maybe that should not be allowed or should be forced, need to come back to it*)
-    
 Fixpoint remove_edge (g : graph) (e : (node * node) ) :=
   let x := (fst e) in
   let y := (snd e) in
   match g with
   |Empty => Empty
-  |Node n adj g' => if Pos.eqb n x then Node n (mset.remove y adj) g'
+  |Node n adj g' => if Pos.eqb n x && (Nat.eqb (mset.cardinal adj) 1)(*probably don't need this*) && (mset.mem y adj)  then remove_edge g' e
                    else Node n adj (remove_edge g' e)
   end.
 
@@ -145,14 +136,14 @@ Fixpoint neighborhood (g : graph) (x : node) : node_set:=
       auto.
     }
     {
-      intros H1 H2.
+      intros H1 H2. 
       simpl (_ && _); cbv iota.
-      
       admit.
     }
     {
       intros.
       simpl ( _ && _); cbv iota.
+      apply msetPair.mem_spec.
       admit.
     }
     {
@@ -180,7 +171,6 @@ Admitted.
        contradiction.
        auto. auto.
       }
-
        simpl. apply mset.add_spec.
        unfold add_vertex in H0.
        simpl in H0. apply mset.add_spec in H0.
@@ -190,6 +180,17 @@ Admitted.
        apply mset.add_spec in H0.
        auto.
     Qed.
+
+
+    Lemma in_add_edge_in_add :
+      forall e1 e2 g, msetPair.In e2 (edges (add_edge g e1)) ->msetPair.In e2 (msetPair.add e1 (edges (g))).
+      Proof.
+        intros.
+        induction g.
+        simpl. simpl in H.
+        Admitted.
+      
+
 
     Lemma add_edges_other :
       forall (e1 e2 : node * node) (g : t),
@@ -216,28 +217,22 @@ Admitted.
         intros.
         unfold add_edge in H0.
         simpl (_ && _) in H0. cbv iota in H0.
-        simpl ((let (_,_) := e1 in Empty)) in H0.
+        simpl (let (_, _) := e1 in Empty) in H0.
         admit.
       }
       {
         intros.
-        admit.
+        apply msetPair_prop.Dec.F.add_3 with (x := e1).
+        auto. apply in_add_edge_in_add.
+        auto.
       }
     Admitted.
        
-       
-
-
-
-
     Lemma add_vertices_pres_edges :
       forall (x : node) (g : t), msetPair.Equal (edges (add_vertex g x)) (edges g).
     Proof.
       intros.
-      unfold add_vertex.
-      cbv.
-      auto.
-      (* This was pretty funny.  Given that is takes so long to compute it's probably worth comming back and doing this a better way.*)
+      reflexivity.
     Qed.
     
     Lemma add_edges_pres_vertices :
@@ -249,23 +244,21 @@ Admitted.
       case_eq (mset.mem n (vertices g));
         case_eq ( mset.mem n0 (vertices g)).
       {
-        intros H1 H2; simpl (_ && _); cbv iota.
-        simpl. 
-        admit.
+        intros H1 H2; simpl. (*(_ && _); cbv iota.*)
+        apply mset.mem_spec in H2.
+        apply mset_prop.add_equal.
+        auto.
       }
-      {
-        intros H1 H2; simpl (_ && _); cbv iota.
-        reflexivity.
-      }
-      {
-        intros H1 H2; simpl (_ && _); cbv iota.
-        reflexivity.
-      }
-      intros H1 H2; simpl (_ && _); cbv iota.
-      reflexivity.
-    Admitted.
-    
 
+      {
+        reflexivity.
+      }
+      {
+        reflexivity.
+      }
+      reflexivity.
+    Qed.
+         
     Lemma remove_vertices :
       forall (x : node) (g : t), ~ mset.In x (vertices (remove_vertex g x)).
     Proof.
@@ -275,14 +268,17 @@ Admitted.
       inversion H.
       unfold not.
       intros. apply mset.mem_spec in H. 
+      apply IHg.
+      apply mset.mem_spec in H.
       simpl in H.
-    Admitted.
+      Admitted.
 
     Lemma remove_edges :
       forall (e : node * node) (g : t), ~ msetPair.In e (edges (remove_edge g e)).
     Proof.
       intros.
-      unfold not. intros.
+      unfold not. intros. induction g.
+      inversion H.
       Admitted.
 
 
@@ -292,11 +288,9 @@ Admitted.
     Proof.
       intros. unfold not. intros.
       induction g.
-      simpl in H. inversion H.
+      inversion H.
     Admitted.
     
-    
-      
     Lemma remove_vertices_edges_r :
         forall (x1 : node) (g : t) (x2 : node),
           ~ msetPair.In (x2, x1) (edges (remove_vertex g x1)).
@@ -304,8 +298,6 @@ Admitted.
       intros.
     Admitted.
     
-
-
     Lemma remove_vertices_other :
         forall (x y : node) (g : t),
           x <> y ->  mset.In y (vertices g) <-> mset.In y (vertices (remove_vertex g x)).
@@ -322,21 +314,74 @@ Admitted.
       destruct H0.
       auto.
       auto.
+      {
+        admit.
+      }
+      
       admit.
     Admitted.
     
-Parameter remove_edges_other :
-        forall (e1 e2 : node * node) (g : t),
-          e1 <> e2 -> In e2 (edges g) <-> In e2 (edges (remove_edge g e1)).
-      Parameter is_vertex_vertices :
-        forall (x : elt) (g : t), In x (vertices g) <-> is_vertex g x = true.
-      Parameter is_edge_edges :
-        forall (e : elt) (g : t), In e (edges g) <-> is_edge g e = true.
-      Parameter neighborhood_prop :
-        forall (x : node) (y : elt) (g : t),
-          In y (neighborhood g x) <-> In (x, y) (edges g).
+    Lemma remove_edges_other :
+      forall (e1 e2 : node * node) (g : t),
+        e1 <> e2 -> msetPair.In e2 (edges g) <-> msetPair.In e2 (edges (remove_edge g e1)).
+    Proof.
+      intros.
+      split; induction g.
+      {
+        auto.
+      }
+      {
+        intro H1.
+        simpl.
+        
+admit.
+      }
+      {
+        auto.
+      }
+
+
+
+
+
+      Lemma is_vertex_vertices :
+        forall (x : node) (g : t), mset.In x (vertices g) <-> is_vertex g x = true.
+      Proof.
+        intros;
+        split; apply mset.mem_spec.
+      Qed.
+      
+      Lemma is_edge_edges :
+        forall (e : node * node ) (g : t), msetPair.In e (edges g) <-> is_edge g e = true.
+      Proof.
+        intros.
+        split; apply msetPair.mem_spec.
+      Qed.
+      
+
+      Lemma neighborhood_prop :
+        forall (x : node) (y : node) (g : t),
+          mset.In y (neighborhood g x) <-> msetPair.In (x, y) (edges g).
+      Proof.
+        intros; split. intros.  apply msetPair.mem_spec.
+        induction g.
+        inversion H.
+        destruct H.
+        subst.
+        simpl in H.
+Admitted.        
+
+
+
+
+        
+
       Parameter edges_proper_l :
-        forall (x : elt) (g : t), In x (edges g) -> In (fst x) (vertices g).
+        forall (e : node * node) (g : t), msetPair.In e (edges g) -> mset.In (fst e) (vertices g).
       Parameter edges_proper_r :
-        forall (x : elt) (g : t), In x (edges g) -> In (snd x) (vertices g).
-      Print Graphs.
+        forall (e : node * node ) (g : t), msetPair.In e (edges g) -> mset.In (snd e) (vertices g).
+End Bleh.
+Print Graphs.
+
+Module graph_prop := graph_properties  PositiveOrderedTypeBits Bleh.
+Print graph_prop.
