@@ -298,6 +298,18 @@ Fixpoint neighborhood (g : graph) (x : node) : node_set:=
        auto.
     Qed.
 
+    Lemma folds_equal : forall n n0 g , msetPair.Equal ((mset.fold
+            (fun (x' : mset.elt) (s' : msetPair.t) =>
+               msetPair.add (n, x') s') n0 (edges g)))
+                                                        ((msetPair.union (pairset_of_nodes n n0) (edges g))).
+      intros.
+      generalize (edges g).
+      intro n1.
+      unfold pairset_of_nodes.
+      apply mset_prop.fold_rec.
+      Admitted.
+
+
     Lemma add_edges_other :
       forall (e1 e2 : node * node) (g : t),
         e1 <> e2 -> msetPair.In e2 (edges g) <-> msetPair.In e2 (edges (add_edge g e1)).
@@ -329,7 +341,28 @@ Fixpoint neighborhood (g : graph) (x : node) : node_set:=
         apply msetPair_prop.Dec.F.add_3 with (x := e1).
         auto. rewrite msetPair.add_spec.
         right.
-    Admitted.
+        rewrite node_pres_edges.
+        apply msetPair.union_spec.
+        unfold add_edge in H0.
+        destruct e1, e2.
+        destruct ( mset.mem n1 (vertices (Node n n0 g)) &&
+                            mset.mem n2 (vertices (Node n n0 g))) in H0.
+        simpl in H0.
+        apply  msetPair.add_spec in H0.
+        destruct H0.
+        symmetry in H0.
+        unfold not in H.
+        apply H in H0.
+        destruct H0.
+        apply msetPair.union_spec.
+        unfold pairset_of_nodes.
+        apply  folds_equal.
+        auto. (*Above lemma needs to be proven*)
+        apply node_pres_edges in H0.
+        apply msetPair.union_spec.
+        auto.
+      }
+    Qed.
 
     Lemma add_vertices_pres_edges :
       forall (x : node) (g : t), msetPair.Equal (edges (add_vertex g x)) (edges g).
