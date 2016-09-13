@@ -720,14 +720,28 @@ Module graph_properties (Node : UsualOrderedType) (G : Graphs Node).
               | apply X0 in p; auto].
   Qed.
 
-  Lemma ind3 (P : t -> Type) (H0 : respectful P) :
+  Definition inv1 (P : t -> Type) :=
+    forall t1 t2, mset.Equal (vertices t1) (vertices t2) -> P t1 -> P t2.
+
+
+  Lemma ind3  (P : t -> Type) (H0 : respectful P) (H1 : inv1 P) :
     P empty -> 
-    (forall g1 g2, (S ( mset.cardinal (vertices g1)) = mset.cardinal (vertices g2)  -> P g1 -> P g2)) ->
+    (forall g1 g2, (S ( mset.cardinal (vertices g1)) = mset.cardinal (vertices g2) -> P g1 -> P g2)) ->
      forall g, P g.
   Proof.
     intros.
-    
-
+    apply ind1; auto.
+    intros.
+    admit.
+    intros.
+    unfold inv1 in H1.
+    apply H1 with  (t1 := g0).
+    rewrite add_edges_pres_vertices.
+    auto.
+    reflexivity.
+    auto.
+    Admitted.
+  
 
 
 End graph_properties.
