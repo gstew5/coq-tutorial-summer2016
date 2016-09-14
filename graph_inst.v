@@ -24,8 +24,6 @@ Module Bleh : Graphs PositiveOrderedTypeBits.
 
   Notation "[ elt0 , .. , eltn ]" := (mset.add elt0 .. (mset.add eltn (mset.empty )) .. ) (at level 60, right associativity).
 
-
-
   Inductive graph : Type :=
   | Empty : graph
   | Node :
@@ -103,13 +101,7 @@ Fixpoint neighborhood (g : graph) (x : node) : node_set:=
       msetPair.In (x,y) (edges (Node n n0 g)) ->
       x = n /\ mset.In y n0 \/ msetPair.In e (edges g).
     Proof.
-      intros.
-      apply mset_prop.set_induction.
-      intros.
-      destruct e.
-      left.
-      unfold edges in H.
-      induction g.
+      intros. simpl in H.
     Admitted.
 
   Lemma node_pres_verts : forall (n : node) (e : node_set) (g : t),
@@ -298,16 +290,34 @@ Fixpoint neighborhood (g : graph) (x : node) : node_set:=
        auto.
     Qed.
 
-    Lemma folds_equal : forall n n0 s , msetPair.Equal ((mset.fold
-            (fun (x' : mset.elt) (s' : msetPair.t) =>
-               msetPair.add (n, x') s') n0 (s)))
-                                                        ((msetPair.union (pairset_of_nodes n n0) (s))).
+    Lemma folds_equal : forall n n0 s ,
+      msetPair.Equal
+        ((mset.fold
+          (fun (x' : mset.elt) (s' : msetPair.t) =>
+             msetPair.add (n, x') s') n0 (s)))
+      ((msetPair.union (pairset_of_nodes n n0) (s))).
+    Proof.
       intros.
-      intro n1.
       unfold pairset_of_nodes.
-      apply mset_prop.fold_rec.
-      Admitted.
-
+      apply mset_prop.fold_rec_bis.
+      {
+        intros. rewrite H0.
+        apply mset_prop.fold_equal with (s := s0) (s' := s').
+        admit.
+        admit.
+        admit.
+        apply H.
+      }
+      {
+        rewrite mset_prop.fold_1b.
+        admit. admit. 
+      }
+      {
+        intros.
+        split. simpl.
+        intros. rewrite mset_prop.fold_add.
+        rewrite msetPair.union_spec.
+Admitted.
 
     Lemma add_edges_other :
       forall (e1 e2 : node * node) (g : t),
@@ -426,8 +436,7 @@ Qed.
       inversion H.
       simpl in H.
       apply IHg.
-      destruct e.
-      Admitted.
+   Admitted.
 
 
     Lemma remove_vertices_edges_l :
@@ -487,30 +496,17 @@ Qed.
         apply mset.add_spec.
         auto.
       }
-
-
       induction g.
       intro H0.
       inversion H0.
-      intro H0. simpl in H0.
-      simpl.
-      rewrite mset.add_spec.
-      intros.
-      right.
-      case_eq (n =? x).
-      intro H1.
-      rewrite H1 in H0.
-      auto.
-      intro H1.
-      rewrite H1 in H0.
-      simpl in H0.
-      rewrite mset.add_spec in H0.
-      destruct H0.
-      Focus 2.
-      auto.
+      intro H0.
+      unfold remove_vertex in H0.
+      case_eq (n =? x); intros H1;
+      rewrite H1 in H0; fold remove_vertex in H0.
+      admit.
+      simpl in *.
     Admitted.
     
-
     Lemma in_edge_node_or_graph :
       forall (g : t) n n0(e : node * node) ,
         msetPair.In e (edges (Node n n0 g)) ->
@@ -531,7 +527,7 @@ Lemma remove_edges_other :
         e1 <> e2 -> msetPair.In e2 (edges g) <-> msetPair.In e2 (edges (remove_edge g e1)).
     Proof.
       intros. destruct e1,e2.
-      split; induction g.
+      induction g.
       {
         auto.
       }
