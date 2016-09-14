@@ -298,12 +298,11 @@ Fixpoint neighborhood (g : graph) (x : node) : node_set:=
        auto.
     Qed.
 
-    Lemma folds_equal : forall n n0 g , msetPair.Equal ((mset.fold
+    Lemma folds_equal : forall n n0 s , msetPair.Equal ((mset.fold
             (fun (x' : mset.elt) (s' : msetPair.t) =>
-               msetPair.add (n, x') s') n0 (edges g)))
-                                                        ((msetPair.union (pairset_of_nodes n n0) (edges g))).
+               msetPair.add (n, x') s') n0 (s)))
+                                                        ((msetPair.union (pairset_of_nodes n n0) (s))).
       intros.
-      generalize (edges g).
       intro n1.
       unfold pairset_of_nodes.
       apply mset_prop.fold_rec.
@@ -380,12 +379,11 @@ Fixpoint neighborhood (g : graph) (x : node) : node_set:=
       case_eq (mset.mem n (vertices g));
       case_eq ( mset.mem n0 (vertices g)).
       {
-        intros H1 H2; simpl. (*(_ && _); cbv iota.*)
+        intros H1 H2; simpl. 
         apply mset.mem_spec in H2.
         apply mset_prop.add_equal.
         auto.
       }
-
       {
         reflexivity.
       }
@@ -405,16 +403,20 @@ Fixpoint neighborhood (g : graph) (x : node) : node_set:=
       unfold not in *.
       intros.
       simpl in H.
-      destruct ((n =? x)%positive) in H.
-      apply IHg.
+      case_eq (n =? x).
+      intros.
+      rewrite H0 in H.
       auto.
-      apply IHg.
-      apply node_pres_verts in H.
-      apply mset.union_spec in H.
-      destruct H eqn:H1.
-      Focus 2.
+      intros.
+      rewrite H0 in H.
+      simpl in H.
+      rewrite mset.add_spec in H.
+      destruct H.
+      apply Pos.eqb_neq in H0.
+      unfold not in H0.
       auto.
-      Admitted.
+      auto.
+Qed.
     
     Lemma remove_edges :
       forall (e : node * node) (g : t), ~ msetPair.In e (edges (remove_edge g e)).
@@ -453,7 +455,7 @@ Fixpoint neighborhood (g : graph) (x : node) : node_set:=
       simpl in H.
       
     Admitted.
-        
+
     Lemma remove_vertices_other :
         forall (x y : node) (g : t),
           x <> y ->  mset.In y (vertices g) <-> mset.In y (vertices (remove_vertex g x)).
@@ -462,31 +464,50 @@ Fixpoint neighborhood (g : graph) (x : node) : node_set:=
       split. intros.
       induction g.
       auto. simpl.
-      destruct (n =? x)%positive.
-      Focus 2.
-      simpl.
-      apply mset.add_spec.
-      apply mset.add_spec in H0.
+      simpl in H0.
+      rewrite mset.add_spec in H0.
       destruct H0.
-      auto.
-      auto.
       {
-        rewrite node_pres_verts in H0.
-        rewrite mset.union_spec in H0.
+        destruct (n =? x) eqn:H1.
+        apply Peqb_true_eq in H1.
+        rewrite H1 in H0.
+        unfold not in H.
+        symmetry in H0.
+        apply H in H0.
         destruct H0.
-        rewrite <- mset_prop.singleton_equal_add in H0.
-        apply mset_prop.Dec.F.singleton_1 in H0.
-        Focus 2.
-        apply IHg.
-        apply H0.
-        admit.
+        simpl.
+        apply mset.add_spec.
+        auto.
       }
-      intros.
+      {
+        apply IHg in H0.
+        destruct (n =? x) eqn:H1.
+        auto.
+        simpl.
+        apply mset.add_spec.
+        auto.
+      }
+
+
       induction g.
+      intro H0.
       inversion H0.
-      rewrite node_pres_verts.
-      apply mset.union_spec.
+      intro H0. simpl in H0.
+      simpl.
+      rewrite mset.add_spec.
+      intros.
       right.
+      case_eq (n =? x).
+      intro H1.
+      rewrite H1 in H0.
+      auto.
+      intro H1.
+      rewrite H1 in H0.
+      simpl in H0.
+      rewrite mset.add_spec in H0.
+      destruct H0.
+      Focus 2.
+      auto.
     Admitted.
     
 
@@ -509,7 +530,7 @@ Lemma remove_edges_other :
       forall (e1 e2 : node * node) (g : t),
         e1 <> e2 -> msetPair.In e2 (edges g) <-> msetPair.In e2 (edges (remove_edge g e1)).
     Proof.
-      intros.
+      intros. destruct e1,e2.
       split; induction g.
       {
         auto.
@@ -517,12 +538,22 @@ Lemma remove_edges_other :
       {
         intro H1.
         simpl.
+        rewrite node_pres_edges in H1.
+        rewrite msetPair.union_spec in H1.
+        destruct H1.
+        destruct (n3 =? n) eqn:H2.
+        {
+          rewrite node_pres_edges.
+          apply msetPair.union_spec.
+          left.
+          unfold pairset_of_nodes.
+          rewrite folds_equal.
+          rewrite msetPair.union_spec.
+          left.
         admit.
       }
       {
         auto.
-      }
-      intros.
       Admitted.
 
 
@@ -545,9 +576,12 @@ Lemma remove_edges_other :
         forall (x : node) (y : node) (g : t),
           mset.In y (neighborhood g x) <-> msetPair.In (x, y) (edges g).
       Proof.
-        intros; split. intros.  apply msetPair.mem_spec.
+        intros; split. intros. 
         induction g.
         inversion H.
+        rewrite node_pres_edges.
+        rewrite msetPair.union_spec .
+
         admit.
         intros.
         induction g.
