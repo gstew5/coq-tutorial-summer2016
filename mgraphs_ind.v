@@ -44,7 +44,7 @@ Module Type Graphs (Node : UsualOrderedType).
   Parameter remove_edge : t -> (node*node) -> t.
 
   (* Functions for finding edges/vertices of a graph *)
-  Parameter vertices : t -> node_set.
+  Parameter graph_vertices : t -> node_set.
   Parameter edges : t -> node_setPair.
 
   Parameter is_vertex : t -> node -> bool.
@@ -53,21 +53,21 @@ Module Type Graphs (Node : UsualOrderedType).
   Parameter neighborhood : t -> node -> node_set.
 
   (** empty *)
-  Axiom empty_vertices : vertices empty = mset.empty.
+  Axiom empty_vertices : graph_vertices empty = mset.empty.
   Axiom empty_edges : edges empty = msetPair.empty.  
 
   (** add *)
   Axiom add_vertices :
     forall (x : node) g,
-      In_ns x (vertices (add_vertex g x)).
+      In_ns x (graph_vertices (add_vertex g x)).
   Axiom add_edges :
     forall (e : node*node) g,
-      In_ns (fst e) (vertices g) ->
-      In_ns (snd e) (vertices g)->       
+      In_ns (fst e) (graph_vertices g) ->
+      In_ns (snd e) (graph_vertices g)->       
       In_nsp e (edges (add_edge g e)).
   Axiom add_vertices_other :
     forall (x y : node) g,
-      x <> y -> In_ns y (vertices g) <-> In_ns y (vertices (add_vertex g x)).
+      x <> y -> In_ns y (graph_vertices g) <-> In_ns y (graph_vertices (add_vertex g x)).
   Axiom add_edges_other :
     forall (e1 e2 : node*node) g,
       e1 <> e2 -> In_nsp e2 (edges g) <-> In_nsp e2 (edges (add_edge g e1)).
@@ -76,12 +76,12 @@ Module Type Graphs (Node : UsualOrderedType).
       msetPair.Equal (edges (add_vertex g x)) (edges g).
   Axiom add_edges_pres_vertices :
     forall x g,
-      mset.Equal (vertices (add_edge g x)) (vertices g).
+      mset.Equal (graph_vertices (add_edge g x)) (graph_vertices g).
 
   (** remove *)
   Axiom remove_vertices :
     forall (x : node) g,
-      ~In_ns x (vertices (remove_vertex g x)).
+      ~In_ns x (graph_vertices (remove_vertex g x)).
   Axiom remove_edges :
     forall (e : node*node) g,
       ~In_nsp e (edges (remove_edge g e)).
@@ -94,7 +94,7 @@ Module Type Graphs (Node : UsualOrderedType).
       forall (x2 : node), ~ In_nsp (x2,x1) (edges (remove_vertex g x1)).
   Axiom remove_vertices_other :
     forall (x y : node) g,
-      x <> y -> In_ns y (vertices g) <-> In_ns y (vertices (remove_vertex g x)).
+      x <> y -> In_ns y (graph_vertices g) <-> In_ns y (graph_vertices (remove_vertex g x)).
   Axiom remove_edges_other :
     forall (e1 e2 : node*node) g,
       e1 <> e2 -> In_nsp e2 (edges g) <-> In_nsp e2 (edges (remove_edge g e1)).
@@ -102,7 +102,7 @@ Module Type Graphs (Node : UsualOrderedType).
   (** other properties *)
   Axiom is_vertex_vertices :
     forall x g,
-      In_ns x (vertices g) <-> is_vertex g x = true.
+      In_ns x (graph_vertices g) <-> is_vertex g x = true.
   Axiom is_edge_edges :
     forall e g,
       In_nsp e (edges g) <-> is_edge g e = true.
@@ -111,10 +111,10 @@ Module Type Graphs (Node : UsualOrderedType).
       In_ns y (neighborhood g x) <-> In_nsp (x,y) (edges g).
   Axiom edges_proper_l :
     forall x g,
-      In_nsp x (edges g) -> In_ns (fst x) (vertices g).
+      In_nsp x (edges g) -> In_ns (fst x) (graph_vertices g).
   Axiom edges_proper_r :
     forall x g,
-      In_nsp x (edges g) -> In_ns (snd x) (vertices g).
+      In_nsp x (edges g) -> In_ns (snd x) (graph_vertices g).
 
   (** Above are all of the REQUIRED elements for the module
       The following consist of definitions and derived facts **)
@@ -131,7 +131,7 @@ Module graph_properties (Node : UsualOrderedType) (G : Graphs Node).
    Lemma edges_proper :
     forall x g,
       In_nsp x (edges g) ->
-       In_ns (fst x) (vertices g) /\ In_ns (snd x) (vertices g).
+       In_ns (fst x) (graph_vertices g) /\ In_ns (snd x) (graph_vertices g).
   Proof.
     intros.
     split;
@@ -148,10 +148,10 @@ Module graph_properties (Node : UsualOrderedType) (G : Graphs Node).
         Prove the same facts wrt. remove_vertex/remove_edge. **)
 
     Definition Equal (g1 g2 : t) :=
-      mset.Equal (vertices g1) (vertices g2) /\
+      mset.Equal (graph_vertices g1) (graph_vertices g2) /\
       msetPair.Equal (edges g1) (edges g2).
     Definition equal (g1 g2 : t) :=
-      (mset.equal (vertices g1) (vertices g2)) &&
+      (mset.equal (graph_vertices g1) (graph_vertices g2)) &&
       (msetPair.equal (edges g1) (edges g2)).
     Lemma Equal_refl : Reflexive Equal.
     Proof.
@@ -163,7 +163,7 @@ Module graph_properties (Node : UsualOrderedType) (G : Graphs Node).
     Qed.
     Lemma Equal_trans : Transitive Equal.
     Proof.
-      split; [transitivity (vertices y)| transitivity (edges y)];
+      split; [transitivity (graph_vertices y)| transitivity (edges y)];
       try solve [apply H | apply H0].
     Qed.
     Lemma Equal_equiv : Equivalence Equal.
@@ -172,7 +172,7 @@ Module graph_properties (Node : UsualOrderedType) (G : Graphs Node).
     Qed.
 
   Lemma gen_Equal_V :
-    forall g g', Equal g g' -> mset.Equal (vertices g) (vertices g').
+    forall g g', Equal g g' -> mset.Equal (graph_vertices g) (graph_vertices g').
   Proof. intros. apply H. Qed.
 
   Lemma gen_Equal_E :
@@ -212,7 +212,7 @@ Module graph_properties (Node : UsualOrderedType) (G : Graphs Node).
     Proof.
     intros. split.
     {
-      transitivity (vertices x);
+      transitivity (graph_vertices x);
       rewrite add_edges_pres_vertices;
       [|apply H]; reflexivity.
     }
@@ -232,8 +232,8 @@ Module graph_properties (Node : UsualOrderedType) (G : Graphs Node).
   (* Spend some time trying to cast as a morphism? *)
   Lemma add_edges_set_eq g e s :
     msetPair.Equal (edges g) s ->
-    mset.In (fst e) (vertices g) ->
-    mset.In (snd e) (vertices g) ->
+    mset.In (fst e) (graph_vertices g) ->
+    mset.In (snd e) (graph_vertices g) ->
       msetPair.Equal (edges (add_edge g e)) (msetPair.add e s).
   Proof.
     split; intros;
@@ -324,11 +324,11 @@ Module graph_properties (Node : UsualOrderedType) (G : Graphs Node).
     msetPair.fold (fun elt subg => add_edge subg elt) v g.
   
   Definition rebuild_graph : t -> t :=
-    fun g => const_edges (edges g) (const_vertices (vertices g)).
+    fun g => const_edges (edges g) (const_vertices (graph_vertices g)).
 
   (** Proofs that these functions result in equivalent graphs **)
   Lemma const_vertices_preservation g :
-    mset.Equal (vertices g) (vertices (const_vertices (vertices g))).
+    mset.Equal (graph_vertices g) (graph_vertices (const_vertices (graph_vertices g))).
   Proof.
     unfold const_vertices.
     apply mset_prop.fold_rec;
@@ -363,7 +363,7 @@ Module graph_properties (Node : UsualOrderedType) (G : Graphs Node).
   Qed.
 
   Lemma const_vertices_empty_edges g :
-    msetPair.Equal (edges (const_vertices (vertices g))) (msetPair.empty).
+    msetPair.Equal (edges (const_vertices (graph_vertices g))) (msetPair.empty).
   Proof.
     unfold const_vertices.
     apply mset_prop.fold_rec.
@@ -380,7 +380,7 @@ Module graph_properties (Node : UsualOrderedType) (G : Graphs Node).
 
   Lemma const_edges_empty_vertices' :
     forall v g g', Equal g' g ->
-      mset.Equal (vertices (const_edges v g')) (vertices g).
+      mset.Equal (graph_vertices (const_edges v g')) (graph_vertices g).
   Proof.
     intros.
     unfold rebuild_graph, const_edges.
@@ -396,7 +396,7 @@ Module graph_properties (Node : UsualOrderedType) (G : Graphs Node).
   (* While more specific than the above, this lemma is easy to
       use for rewriting the majority of the cases we care about *) 
   Lemma const_edges_empty_vertices :
-    forall v g, mset.Equal (vertices (const_edges v g)) (vertices g).
+    forall v g, mset.Equal (graph_vertices (const_edges v g)) (graph_vertices g).
   Proof.
     intros.
     apply const_edges_empty_vertices'.
@@ -412,7 +412,7 @@ Module graph_properties (Node : UsualOrderedType) (G : Graphs Node).
     {
     split.
       { 
-        transitivity (vertices g); [|symmetry];
+        transitivity (graph_vertices g); [|symmetry];
         apply const_edges_empty_vertices.
       }
       {
@@ -432,9 +432,9 @@ Module graph_properties (Node : UsualOrderedType) (G : Graphs Node).
       }
       { 
         constructor; subst.
-        transitivity (vertices x1).
+        transitivity (graph_vertices x1).
         rewrite add_edges_pres_vertices; reflexivity.
-        transitivity (vertices y0). apply H3.
+        transitivity (graph_vertices y0). apply H3.
         rewrite add_edges_pres_vertices; reflexivity.
         apply gen_Equal_E.
         apply add_edge_morph; auto.
@@ -449,9 +449,9 @@ Module graph_properties (Node : UsualOrderedType) (G : Graphs Node).
 
   Lemma const_edges_preservation_edges : 
     forall v g
-    (H0 : forall e, msetPair.In e v -> mset.In (fst e) (vertices g))
-    (H1 : forall e, msetPair.In e v -> mset.In (snd e) (vertices g))
-    (H2 : mset.Equal (vertices (const_edges v g)) (vertices g)),
+    (H0 : forall e, msetPair.In e v -> mset.In (fst e) (graph_vertices g))
+    (H1 : forall e, msetPair.In e v -> mset.In (snd e) (graph_vertices g))
+    (H2 : mset.Equal (graph_vertices (const_edges v g)) (graph_vertices g)),
       msetPair.Equal (msetPair.union v (edges g)) (edges (const_edges v g)).
   Proof.
     unfold const_edges. intros v g.
@@ -475,13 +475,13 @@ Module graph_properties (Node : UsualOrderedType) (G : Graphs Node).
       }
       clear H1.
       rewrite msetPair_prop.union_add.
-      assert (In_ns (fst x) (vertices a)) as H6.
+      assert (In_ns (fst x) (graph_vertices a)) as H6.
       {
         rewrite add_edges_pres_vertices in H4.
         apply H4. apply H2. apply msetPair_facts.add_iff.
         left. auto.
       }
-      assert (In_ns (snd x) (vertices a)) as H7.
+      assert (In_ns (snd x) (graph_vertices a)) as H7.
       {
         rewrite add_edges_pres_vertices in H4.
         apply H4. apply H3. apply msetPair_facts.add_iff.
@@ -618,13 +618,13 @@ Module graph_properties (Node : UsualOrderedType) (G : Graphs Node).
 
   (** Definition for subgraphs and a related induction principle **)
   Definition Subgraph g1 g2 : Prop :=
-    mset.Subset (vertices g1) (vertices g2) /\
+    mset.Subset (graph_vertices g1) (graph_vertices g2) /\
     msetPair.Subset (edges g1) (edges g2).
 
   Inductive ProperSubgraph g1 g2 : Prop :=
   | lt_vert :
       Subgraph g1 g2 ->
-      ~ mset.Equal (vertices g1) (vertices g2) ->
+      ~ mset.Equal (graph_vertices g1) (graph_vertices g2) ->
         ProperSubgraph g1 g2
   |  lt_edges :
       Subgraph g1 g2 ->
@@ -672,7 +672,7 @@ Module graph_properties (Node : UsualOrderedType) (G : Graphs Node).
       {Equal g1 g2} + {ProperSubgraph g1 g2}.
   Proof.
     intros. destruct H as [H0 H1];
-    case_eq (mset.subset (vertices g2) (vertices g1));
+    case_eq (mset.subset (graph_vertices g2) (graph_vertices g1));
     case_eq (msetPair.subset (edges g2) (edges g1));
     [ left | right | right | right].
     {
@@ -721,12 +721,12 @@ Module graph_properties (Node : UsualOrderedType) (G : Graphs Node).
   Qed.
 
   Definition inv1 (P : t -> Type) :=
-    forall t1 t2, mset.Equal (vertices t1) (vertices t2) -> P t1 -> P t2.
+    forall t1 t2, mset.Equal (graph_vertices t1) (graph_vertices t2) -> P t1 -> P t2.
 
 
   Lemma ind3  (P : t -> Type) (H0 : respectful P) (H1 : inv1 P) :
     P empty -> 
-    (forall g1 g2, (S ( mset.cardinal (vertices g1)) = mset.cardinal (vertices g2) -> P g1 -> P g2)) ->
+    (forall g1 g2, (S ( mset.cardinal (graph_vertices g1)) = mset.cardinal (graph_vertices g2) -> P g1 -> P g2)) ->
      forall g, P g.
   Proof.
     intros.
