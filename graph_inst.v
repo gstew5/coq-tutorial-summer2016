@@ -2,7 +2,7 @@ Set Implicit Arguments.
 Require Import ZArith MSets.
 Require Import mgraphs_ind pair_UOT.
 
-Module graph_inst : Graphs PositiveOrderedTypeBits.
+Module g : Graphs PositiveOrderedTypeBits.
   
   
   Module mset := MSetAVL.Make PositiveOrderedTypeBits.
@@ -206,6 +206,10 @@ Qed.
       inversion H.
       subst.
       apply (IHg v) in H4.
+      
+
+
+
     Admitted.
     
 
@@ -277,22 +281,43 @@ Qed.
       {
         intros. rewrite H0.
         apply mset_prop.fold_equal with (s := s0) (s' := s').
-        
-        admit.
+        constructor.
+        constructor;
+        intros; auto.
+        constructor.
+        unfold msetPair.Equal in H1.
+        apply H1.
+        unfold msetPair.Equal in H1.
+        apply H1.
+        constructor.
+        unfold msetPair.Equal in H1,H2.
+        intros.
+        apply H1 in H3.
+        apply H2 in H3.
+        auto.
+        unfold msetPair.Equal in H1,H2.
+        intros.
+        apply H2 in H3.
+        apply H1 in H3.
+        auto.
+        (*rewrite  msetPair_prop.Dec.F.union_m.*)
         admit.
         admit.
         apply H.
       }
       {
         rewrite mset_prop.fold_1b.
-        admit. admit. 
+        rewrite msetPair_prop.empty_union_1.
+        reflexivity.
+        auto.
+        auto.
       }
       {
         intros.
         split. simpl.
         intros. rewrite mset_prop.fold_add.
         rewrite msetPair.union_spec.
-Admitted.
+    Admitted.
 
 
 
@@ -557,6 +582,9 @@ Admitted.
       subst.
       assert ((n =? n)%positive = true).
       apply Pos.eqb_refl.
+      unfold edges in *.
+      simpl in *.
+
       Focus 2.
       intros.
       apply Pos.eqb_neq in H0.
@@ -568,11 +596,27 @@ Admitted.
         forall (x1 : node) (g : t) (x2 : node),
           ~ msetPair.In (x1, x2) (edges (remove_vertex g x1)).
     Proof.
-      intros. unfold not. intros.
+      intros. unfold edges, remove_vertex. unfold not. intros.
+      destruct g as [ g pf].
+      simpl in H.
       induction g.
       inversion H.
-      simpl in H.
+      apply IHg.
+      inversion pf.
       auto.
+      simpl in H.
+      case_eq ((n =? x1)%positive);
+      intros.
+      rewrite H0 in H.
+      auto.
+      rewrite H0 in H.
+      simpl in H.
+      rewrite folds_equal in H.
+      rewrite msetPair.union_spec in H.
+      destruct H.
+      Focus 2.
+      auto.
+      unfold pairset_of_nodes in H.
     Admitted.
 
 
@@ -648,27 +692,15 @@ Admitted.
       apply IHg; auto.
     Qed.
     
-    (* Lemma in_edge_node_or_graph : *)
-    (*   forall (g : t) n n0(e : node * node) , *)
-    (*     msetPair.In e (edges (Node n n0 g)) -> *)
-    (*       (msetPair.In e (pairset_of_nodes n n0) \/ msetPair.In e (edges g)). *)
-    (* Proof. *)
-    (*   intros. *)
-    (*   generalize dependent g. *)
-    (*   generalize dependent n. *)
-    (*   generalize dependent n0. *)
-    (*   induction g. *)
-    (*   auto. *)
-    (*   intros. *)
-    (*   Admitted. *)
-      
 
 Lemma remove_edges_other :
       forall (e1 e2 : node * node) (g : t),
         e1 <> e2 -> msetPair.In e2 (edges g) <-> msetPair.In e2 (edges (remove_edge g e1)).
     Proof.
       intros. destruct e1,e2.
+      unfold edges, remove_edge.
       destruct g as [g pf].
+      simpl.
       induction g.
       {
         split.
@@ -679,7 +711,30 @@ Lemma remove_edges_other :
         split.
         intro H1.
         simpl.
+        destruct ((n3 =? n)%positive).
+        Focus 2.
+        unfold edges' in *.
+        fold edges' in *.
+        apply folds_equal.
+        apply msetPair.union_spec.
+        apply folds_equal in H1.
+        apply msetPair.union_spec in H1.
         destruct H1.
+        auto.
+        apply IHg in H0.
+        auto.
+        inversion pf.
+        auto.
+        unfold edges' in *.
+        fold edges' in *.
+        apply folds_equal in H1.
+        apply folds_equal.
+        apply msetPair.union_spec.
+        apply msetPair.union_spec in H1.
+        destruct H1.
+        unfold pairset_of_nodes.
+        unfold edges' in *.
+        fold edges' in *.
       Admitted.
 
 
@@ -704,15 +759,37 @@ Lemma remove_edges_other :
           mset.In y (neighborhood g x) <-> msetPair.In (x, y) (edges g).
       Proof.
         intros.
+        unfold neighborhood, edges.
+        destruct g as  [g pf].
+        simpl.
+        split.
+        intros.
+        induction g.
+        inversion H.
+        unfold edges'.
+        fold edges'.
+        rewrite folds_equal.
+        rewrite msetPair.union_spec.
+        right.
+        apply IHg.
+        inversion pf.
+        auto.
+        simpl in H.
       Admitted.        
 
 
-      Lemma node_edges_weaken : forall (g : graph) (n x y : node) n0  (e :=(x, y) : node * node),
+      Lemma node_edges_weaken : forall (g : graph) (n x y : node) n0  (e :=(x, y) : node * node), graph_ok g -> 
       msetPair.In (x,y) (edges' (Node n n0 g)) ->
       x = n /\ mset.In y n0 \/ msetPair.In e (edges' g).
     Proof.
-      intros. simpl in H.
-    Admitted.
+      intros. destruct e.
+      induction g.
+      simpl in *.
+      left.
+      rewrite folds_equal in H0.
+      rewrite msetPair.union_spec in H0.
+      Admitted.
+
       
       Lemma edges_proper_l :
         forall (e : node * node) (g : t), msetPair.In e (edges g) -> mset.In (fst e) (graph_vertices g).
@@ -733,26 +810,65 @@ Lemma remove_edges_other :
         simpl.
         apply mset.add_spec.
         auto.
+        inversion pf. auto.
 Qed.
       Lemma edges_proper_r :
         forall (e : node * node ) (g : t), msetPair.In e (edges g) -> mset.In (snd e) (graph_vertices g).
       Proof.
         intros.
+        unfold edges in *.
+        unfold graph_vertices in *.
         destruct g as [g pf].
+        simpl in *.
         induction g.
         intros.
         inversion H.
         simpl.
         destruct e.
-        apply  node_edges_weaken in H.
-        destruct H.
-        simpl; apply mset.add_spec.
-        destruct H.
+        rewrite mset.add_spec.
+        simpl in IHg.
+        simpl.
+        inversion pf.
+        subst.
+        apply node_edges_weaken in H.
         right.
-        Admitted.
+        destruct H; auto.
+        apply H4.
+        destruct H; auto.
+        auto.
+      Qed.
+      Open Scope positive_scope.
+      
 
-End graph_inst.
+Example a : (graph_vertices (add_vertex empty 1)) = mset.add 1 mset.empty.
+auto.
+Qed.
+
+
+
+
+
+
+
+End g.
 Print Graphs.
+Open Scope positive_scope.
+Definition add_vertex := g.add_vertex.
+Definition empty := g.empty.
+Definition edges := g.edges.
+Definition vertices := g.graph_vertices.
 
-Module graph_prop := graph_properties  PositiveOrderedTypeBits graph_inst.
+
+
+Example a : (vertices (add_vertex empty 1)) = g.mset.add 1 g.mset.empty.
+Proof.
+  unfold vertices. unfold add_vertex.
+  Admitted.
+
+
+
+
+
+Module graph_prop := graph_properties  PositiveOrderedTypeBits g.
 Print graph_prop.
+Print g.
